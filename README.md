@@ -61,6 +61,16 @@ Dropped peers enter a priority retry queue (exponential backoff, checked every 2
 
 Optional name (max 16 characters, control characters and `<>` stripped) set in the Invite panel and stored in `localStorage` (`mc_name`). It travels inside each message (covered by the message hash, so relays cannot alter it) and in typing events; received bubbles show it instead of the short ID (hover for the ID). Names are not unique or authenticated — bubble colour is derived from the sender ID.
 
+## Short join code (4 characters, voice-friendly)
+
+After "Create private room" the host also gets a **4-character code** (CSPRNG, 32-symbol alphabet) to read aloud. It is _not_ the room secret, only a one-time pairing ticket, and the brute-force limits live in the host's browser (there is no server):
+
+- **Wrong guesses never reach anyone** — the code selects a rendezvous topic; only the correct code contacts the host, so there is no oracle to hammer.
+- **Host approval:** every join request shows on the host as "Name wants to join · safety number 4821"; the joiner sees the same number (ECDH transcript hash). Nothing is released until the host taps **Allow**; compare the numbers aloud to rule out a man-in-the-middle.
+- **Single use + 5 min TTL**, one pending request at a time, **max 5 requests and 3 declines** per code, then it locks. Joiners are also throttled locally (5 failures / 10 min).
+- On Allow, the real 80-bit room secret is sent encrypted with an ephemeral ECDH key; the room then works exactly as before. The long invite link/code still works and is the strongest option.
+  Residual risk: someone who guesses the code within 5 minutes can _ask_ to join, but still needs your Allow. The broker operator can see the (hashed) topic. Both ends must reach the same public broker.
+
 ## Identity, history and cleanup
 
 - Peer ID is kept per tab (`sessionStorage`), together with the room code, so a reload rejoins the same room as the same peer and old messages still show as "you". A new tab is a new peer.
@@ -71,7 +81,7 @@ Optional name (max 16 characters, control characters and `<>` stripped) set in t
 
 ## Composer (WhatsApp-style)
 
-The message box auto-focuses on desktop. Enter sends, Shift+Enter adds a new line (on touch devices Enter adds a line and the Send button sends). Clicking Send or any other button does not steal focus if the box had it, and the box is not focused if it did not have focus before. Long messages grow the box up to 5 lines.
+The message box is not focused on load (you click it first). Enter sends, Shift+Enter adds a new line (on touch devices Enter adds a line and the Send button sends). Clicking Send or any other button does not steal focus if the box had it, and the box is not focused if it did not have focus before. Long messages grow the box up to 5 lines.
 
 ## Live map
 

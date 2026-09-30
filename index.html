@@ -451,11 +451,25 @@
               <input
                 id="jc"
                 maxlength="200"
-                placeholder="…or paste an invite link / code"
+                placeholder="…or enter a 4-character code / paste an invite link"
                 style="flex: 2"
               /><button id="bJoin">Join</button>
             </div>
             <div class="code" id="code" hidden></div>
+            <div id="sc" class="pad" hidden>
+              <div
+                class="code"
+                id="scv"
+                style="font-size: 34px; letter-spacing: 8px"
+              >
+                —
+              </div>
+              <div
+                id="sct"
+                style="font-size: 12px; color: var(--d); text-align: center"
+              ></div>
+              <button id="bSc">New short code</button>
+            </div>
             <div class="row" id="cr" hidden>
               <button id="bCL" class="pri">Copy invite link</button
               ><button id="bCC">Copy code</button>
@@ -544,6 +558,13 @@
           <div class="row">
             <button id="eNew" class="pri">Create room</button
             ><button id="eJoin">Join room</button>
+          </div>
+        </div>
+        <div id="ap" class="box" hidden style="margin: 8px 12px 0">
+          <div id="apt"></div>
+          <div class="row">
+            <button id="apy" class="pri">Allow</button
+            ><button id="apn">Deny</button>
           </div>
         </div>
         <div id="ty"></div>
@@ -1434,7 +1455,7 @@
         })();
 
         /* ===================== broker.js — 6-digit-code rendezvous: minimal MQTT-over-WSS on public brokers (signaling only) ===================== */
-        const Broker = (() => {
+        const mkBroker = () => {
           const URLS = [
               "wss://broker.hivemq.com:8884/mqtt",
               "wss://broker.emqx.io:8084/mqtt",
@@ -1621,7 +1642,8 @@
               return ok;
             },
           };
-        })();
+        };
+        const Broker = mkBroker();
 
         /* ===================== mesh.js — adaptive topology, peer scoring, routing ===================== */
         const Mesh = (() => {
@@ -2774,6 +2796,237 @@
           return { chunks, assemble, scan, stop };
         })();
 
+        /* ===================== pair.js — voice-friendly 4-char join code: host-approved, single-use, short-lived ===================== */
+        const Pair = (() => {
+          const AL = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789",
+            TTL = 300000,
+            te = new TextEncoder(),
+            td = new TextDecoder(),
+            EC = { name: "ECDH", namedCurve: "P-256" };
+          const b64 = (u) => btoa(String.fromCharCode(...u)),
+            ub = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0)),
+            hex = (u) =>
+              Array.from(u, (x) => x.toString(16).padStart(2, "0")).join("");
+          const sha = async (s) =>
+            new Uint8Array(await crypto.subtle.digest("SHA-256", te.encode(s)));
+          const topic = async (c) =>
+            "mc2/" + hex(await sha("mc2|" + c)).slice(0, 16);
+          const gen = async () => {
+            const kp = await crypto.subtle.generateKey(EC, false, [
+              "deriveBits",
+            ]);
+            return {
+              kp,
+              pub: b64(
+                new Uint8Array(
+                  await crypto.subtle.exportKey("raw", kp.publicKey),
+                ),
+              ),
+            };
+          };
+          const dh = async (priv, pub) =>
+            new Uint8Array(
+              await crypto.subtle.deriveBits(
+                {
+                  name: "ECDH",
+                  public: await crypto.subtle.importKey(
+                    "raw",
+                    ub(pub),
+                    EC,
+                    false,
+                    [],
+                  ),
+                },
+                priv,
+                256,
+              ),
+            );
+          const sas = async (bits, a, b) => {
+            const d = await sha(hex(bits) + a + b);
+            return String(
+              (((d[0] << 24) | (d[1] << 16) | (d[2] << 8) | d[3]) >>> 0) %
+                10000,
+            ).padStart(4, "0");
+          };
+          const key = async (bits) =>
+            crypto.subtle.importKey(
+              "raw",
+              await sha("mc2k|" + hex(bits)),
+              "AES-GCM",
+              false,
+              ["encrypt", "decrypt"],
+            );
+          let H = null,
+            fails = [];
+          function close() {
+            if (!H) return;
+            clearTimeout(H.tm);
+            const j = H.jb;
+            H = null;
+            setTimeout(() => j.close(), 700);
+          }
+          async function host(K, cb) {
+            close();
+            const code = Array.from(
+                crypto.getRandomValues(new Uint8Array(4)),
+                (b) => AL[b % 32],
+              ).join(""),
+              g = await gen(),
+              jb = mkBroker(),
+              h = (H = { code, jb, g, K, n: 0, den: 0, pend: null, cb });
+            h.tm = setTimeout(() => {
+              if (H === h) {
+                close();
+                cb.end("Short code expired");
+              }
+            }, TTL);
+            jb.open(
+              await topic(code),
+              Mesh.me,
+              async (t, s) => {
+                if (H !== h) return;
+                let p;
+                try {
+                  p = JSON.parse(s);
+                } catch (e) {
+                  return;
+                }
+                if (
+                  p.t !== "req" ||
+                  !/^[0-9a-f]{8}$/.test(p.id) ||
+                  typeof p.pub !== "string" ||
+                  p.pub.length > 200
+                )
+                  return;
+                if (h.pend) {
+                  if (h.pend.id === p.id)
+                    jb.pub(p.id, JSON.stringify({ t: "ack", pub: g.pub }));
+                  return;
+                }
+                if (++h.n > 5) {
+                  close();
+                  cb.end("Locked after too many attempts");
+                  return;
+                }
+                try {
+                  const bits = await dh(g.kp.privateKey, p.pub);
+                  h.pend = { id: p.id, bits };
+                  jb.pub(p.id, JSON.stringify({ t: "ack", pub: g.pub }));
+                  cb.ask(cleanName(p.n), await sas(bits, g.pub, p.pub));
+                } catch (e) {}
+              },
+              () => {},
+            );
+            return code;
+          }
+          async function allow() {
+            const h = H;
+            if (!h || !h.pend) return;
+            const iv = crypto.getRandomValues(new Uint8Array(12)),
+              ct = new Uint8Array(
+                await crypto.subtle.encrypt(
+                  { name: "AES-GCM", iv },
+                  await key(h.pend.bits),
+                  te.encode(h.K),
+                ),
+              );
+            h.jb.pub(
+              h.pend.id,
+              JSON.stringify({ t: "ok", iv: b64(iv), ct: b64(ct) }),
+            );
+            close();
+            h.cb.end("Code used — press “New short code” for the next person");
+          }
+          function deny() {
+            const h = H;
+            if (!h || !h.pend) return;
+            h.jb.pub(h.pend.id, JSON.stringify({ t: "no" }));
+            h.pend = null;
+            if (++h.den >= 3) {
+              close();
+              h.cb.end("Locked after repeated declines");
+            }
+          }
+          function join(code, ui) {
+            fails = fails.filter((t) => Date.now() - t < 600000);
+            if (fails.length >= 5) {
+              ui.end("throttle");
+              return () => {};
+            }
+            const jb = mkBroker();
+            let done = false,
+              kh = null,
+              rq = 0,
+              tm = 0;
+            const fin = (r) => {
+              if (done) return;
+              done = true;
+              clearTimeout(tm);
+              clearInterval(rq);
+              jb.close();
+              if (r !== "ok" && r !== "cancel") fails.push(Date.now());
+              ui.end(r);
+            };
+            (async () => {
+              const g = await gen(),
+                send = () =>
+                  jb.pub(
+                    "all",
+                    JSON.stringify({
+                      t: "req",
+                      id: Mesh.me,
+                      pub: g.pub,
+                      n: Mesh.name,
+                    }),
+                  );
+              tm = setTimeout(() => fin("timeout"), 120000);
+              jb.open(
+                await topic(code),
+                Mesh.me,
+                async (t, s) => {
+                  let p;
+                  try {
+                    p = JSON.parse(s);
+                  } catch (e) {
+                    return;
+                  }
+                  if (done) return;
+                  if (p.t === "ack" && !kh && typeof p.pub === "string") {
+                    try {
+                      kh = { bits: await dh(g.kp.privateKey, p.pub) };
+                      ui.sas(await sas(kh.bits, p.pub, g.pub));
+                    } catch (e) {
+                      fin("bad");
+                    }
+                  } else if (p.t === "ok" && kh) {
+                    try {
+                      const K = td.decode(
+                        await crypto.subtle.decrypt(
+                          { name: "AES-GCM", iv: ub(p.iv) },
+                          await key(kh.bits),
+                          ub(p.ct),
+                        ),
+                      );
+                      fin("ok");
+                      ui.joined(K);
+                    } catch (e) {
+                      fin("bad");
+                    }
+                  } else if (p.t === "no") fin("denied");
+                },
+                (st) => {
+                  if (st === "up") send();
+                },
+              );
+              rq = setInterval(() => {
+                if (!kh) send();
+              }, 4000);
+            })().catch(() => fin("bad"));
+            return () => fin("cancel");
+          }
+          return { host, allow, deny, join, close };
+        })();
+
         /* ===================== ui.js ===================== */
         const UI = (() => {
           const log = $("log"),
@@ -3537,7 +3790,14 @@
                   : "Rendezvous server unreachable — retrying (or use manual pairing below)";
           };
           async function start(code, q) {
+            if (code !== curCode) {
+              Pair.close();
+              $("scv").textContent = "—";
+              $("sct").textContent = "";
+              $("ap").hidden = true;
+            }
             curCode = code;
+            $("sc").hidden = false;
             Mesh.setNoHist(AL.indexOf(code[0]) >= 0 && AL.indexOf(code[0]) & 1);
             try {
               sessionStorage.setItem("mc_code", code);
@@ -3560,17 +3820,103 @@
               (b) => AL[b % 32],
             );
             c[0] = AL[(AL.indexOf(c[0]) & 30) | ($("nh").checked ? 1 : 0)];
-            start(c.join(""));
+            start(c.join("")).then(shortCode);
           };
+          let scT = 0,
+            cancelJoin = null;
+          const tick = (exp) => {
+            clearInterval(scT);
+            const f = () => {
+              const s = Math.max(0, Math.round((exp - Date.now()) / 1000));
+              $("sct").textContent = s
+                ? "Say it aloud · valid " +
+                  Math.floor(s / 60) +
+                  ":" +
+                  String(s % 60).padStart(2, "0") +
+                  " · one person"
+                : "";
+              if (!s) clearInterval(scT);
+            };
+            f();
+            scT = setInterval(f, 1000);
+          };
+          async function shortCode() {
+            if (!curCode) return;
+            try {
+              const c = await Pair.host(curCode, {
+                ask: (n, s) => {
+                  $("apt").textContent =
+                    (n || "Someone") +
+                    " wants to join · safety number " +
+                    s +
+                    " (should match their screen)";
+                  $("ap").hidden = false;
+                },
+                end: (m) => {
+                  clearInterval(scT);
+                  $("scv").textContent = "—";
+                  $("sct").textContent = m;
+                  $("ap").hidden = true;
+                },
+              });
+              $("scv").textContent = c;
+              tick(Date.now() + 300000);
+            } catch (e) {
+              toast("Could not create short code", "err");
+            }
+          }
+          $("bSc").onclick = shortCode;
+          $("apy").onclick = () => {
+            $("ap").hidden = true;
+            Pair.allow();
+          };
+          $("apn").onclick = () => {
+            $("ap").hidden = true;
+            Pair.deny();
+          };
+          function joinShort(c) {
+            if (cancelJoin) cancelJoin();
+            $("qs").textContent = "Contacting host…";
+            cancelJoin = Pair.join(c, {
+              sas: (s) => {
+                $("qs").textContent =
+                  "Ask the host to tap Allow · safety number " +
+                  s +
+                  " (must match theirs)";
+              },
+              joined: (K) => {
+                $("qs").textContent = "";
+                start(K);
+              },
+              end: (r) => {
+                if (r !== "ok")
+                  $("qs").textContent =
+                    {
+                      denied: "The host declined.",
+                      timeout:
+                        "No response — check the code or ask for a new one.",
+                      bad: "Pairing failed.",
+                      throttle: "Too many attempts — wait a few minutes.",
+                    }[r] || "";
+              },
+            });
+          }
           $("bJoin").onclick = () => {
             const v = $("jc").value,
               m = v.match(/#c=([A-Za-z0-9-]+)/),
               c = (m ? m[1] : v).replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-            if (c.length !== 16) {
-              toast("Paste the full invite link or 16-character code", "warn");
+            if (c.length === 16) {
+              start(c);
               return;
             }
-            start(c);
+            if (c.length === 4) {
+              joinShort(c);
+              return;
+            }
+            toast(
+              "Enter the 4-character code or paste the full invite link",
+              "warn",
+            );
           };
           $("jc").onkeydown = (e) => {
             if (e.key === "Enter") $("bJoin").click();
@@ -3618,13 +3964,14 @@
             if (!document.hidden) Mesh.wake();
           });
           addEventListener("pagehide", () => {
+            Pair.close();
             Gossip.stop();
             Mesh.destroy();
             clearInterval(gt);
             clearInterval(carT);
             W.kill();
           });
-          /* WhatsApp-style composer focus: buttons never steal focus from the composer; it auto-focuses on desktop */
+          /* WhatsApp-style composer focus: buttons never steal focus from the composer; the box is never focused automatically on load */
           document.addEventListener("mousedown", (e) => {
             if (
               document.activeElement === $("in") &&
@@ -3632,7 +3979,6 @@
             )
               e.preventDefault();
           });
-          if (matchMedia("(pointer:fine)").matches) $("in").focus();
           sync();
           diag();
           dirty();
