@@ -1,5 +1,7 @@
 # MeshChat — decentralized gossip + CRDT + E2EE P2P chat
 
+Single static file (`index.html`), no backend, no keys, no build. Text only. Deploys on GitHub Pages.
+
 **Why no backend?** Browsers connect directly with WebRTC. Signaling (the one-time exchange of connection descriptions) is done by you via QR/paste/link/Gist; after the first link, further offers/answers are routed _through the mesh itself_. Public STUN servers only reveal your public address and never see messages.
 
 **WebRTC in one paragraph:** two browsers swap SDP descriptions, run ICE to find a path through NATs, then open an encrypted DataChannel between them.
@@ -60,6 +62,13 @@ Dropped peers enter a priority retry queue (exponential backoff, checked every 2
 ## Usernames
 
 Optional name (max 16 characters, control characters and `<>` stripped) set in the Invite panel and stored in `localStorage` (`mc_name`). It travels inside each message (covered by the message hash, so relays cannot alter it) and in typing events; received bubbles show it instead of the short ID (hover for the ID). Names are not unique or authenticated — bubble colour is derived from the sender ID.
+
+## Identity, history and cleanup
+
+- Peer ID is kept per tab (`sessionStorage`), together with the room code, so a reload rejoins the same room as the same peer and old messages still show as "you". A new tab is a new peer.
+- Names are exchanged when a link opens, on change, and via gossip views, so a peer is labelled immediately, not only after its first message.
+- Unreachable peers are retried ~6 times, then dropped from the retry list and disappear from the map after about a minute.
+- _Fresh room_ (checkbox before "Create private room"): one bit of the invite code marks the room as fresh, so every member enforces it: peers only send a joiner messages timestamped after it connected. Members who reload also start empty. Default rooms sync history (up to 500 messages).
 
 ## Live map
 

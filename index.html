@@ -234,6 +234,16 @@
         align-self: flex-end;
         background: var(--ac2);
       }
+      .chk {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        font-size: 13px;
+        color: var(--d);
+      }
+      .chk input {
+        width: auto;
+      }
       .msg b {
         font-size: 11px;
         margin-right: 8px;
@@ -422,7 +432,10 @@
               maxlength="16"
               autocomplete="nickname"
               placeholder="Your name (optional, max 16 characters)"
-            /><button id="bNew" class="pri" style="padding: 11px">
+            /><label class="chk"
+              ><input type="checkbox" id="nh" /> Fresh room: people who join
+              later won't see earlier messages</label
+            ><button id="bNew" class="pri" style="padding: 11px">
               Create private room
             </button>
             <div class="row">
@@ -1593,7 +1606,18 @@
 
         /* ===================== mesh.js — adaptive topology, peer scoring, routing ===================== */
         const Mesh = (() => {
-          const me = rid(),
+          const me = (() => {
+              try {
+                let v = sessionStorage.getItem("mc_id");
+                if (!/^[0-9a-f]{8}$/.test(v || "")) {
+                  v = rid();
+                  sessionStorage.setItem("mc_id", v);
+                }
+                return v;
+              } catch (e) {
+                return rid();
+              }
+            })(),
             ID = /^[0-9a-f]{8}$/,
             on = {};
           let room = "",
@@ -1604,8 +1628,11 @@
             hbT = 0,
             bn = 0,
             ever = false,
-            nick = "";
-          const links = new Map(),
+            nick = "",
+            nmT = 0,
+            nohist = false;
+          const nms = new Map(),
+            links = new Map(),
             pend = new Map(),
             dial = new Map(),
             adj = new Map(),
@@ -1940,6 +1967,7 @@
             evt("Connected to " + p.id.slice(0, 4), "ok");
             topo();
             on.linked(p.id);
+            Rtc.send(l, { k: "nm", n: nick });
             Gossip.hi(l);
             on.change();
           }
@@ -1998,6 +2026,14 @@
                 kill(l);
                 on.change();
                 break;
+              case "nm":
+                {
+                  const nn = cleanName(p.n);
+                  if (nn) nms.set(l.id, nn);
+                  else nms.delete(l.id);
+                  on.change();
+                }
+                break;
               case "sg":
                 routeSg(p, l);
                 break;
@@ -2014,6 +2050,8 @@
               if (e[0] !== me) {
                 adj.set(e[0], { n: new Set(nb), t: now() });
                 known.set(e[0], now());
+                const nn = cleanName(e[2]);
+                if (nn && nms.size < 300) nms.set(e[0], nn);
               }
               nb.forEach((x) => {
                 if (x !== me) known.set(x, now());
@@ -2022,11 +2060,11 @@
             fillSoon();
           }
           function view() {
-            const own = [me, [...links.keys()]],
+            const own = [me, [...links.keys()], nick],
               rest = [...adj]
                 .sort(() => Math.random() - 0.5)
                 .slice(0, 4)
-                .map(([k, v]) => [k, [...v.n]]);
+                .map(([k, v]) => [k, [...v.n], nms.get(k) || ""]);
             return [own, ...rest];
           }
           function prune() {
@@ -2094,7 +2132,10 @@
               if (n - v.t > 40000) adj.delete(k);
             });
             known.forEach((t, k) => {
-              if (n - t > 60000 && !links.has(k)) known.delete(k);
+              if (n - t > 60000 && !links.has(k)) {
+                known.delete(k);
+                nms.delete(k);
+              }
             });
             pruned.forEach((t, k) => {
               if (t < n) pruned.delete(k);
@@ -2328,7 +2369,7 @@
                 }
                 r.n++;
                 r.at = n + Math.min(30000, 3000 * 2 ** r.n);
-                if (r.n > 12) retry.delete(id);
+                if (r.n > 5) retry.delete(id);
                 else {
                   evt("Retry #" + r.n + " → " + id.slice(0, 4), "info");
                   reach(id);
@@ -2382,6 +2423,18 @@
             evt,
             setName: (v) => {
               nick = cleanName(v);
+              clearTimeout(nmT);
+              nmT = setTimeout(
+                () => links.forEach((l) => Rtc.send(l, { k: "nm", n: nick })),
+                600,
+              );
+            },
+            nameOf: (id) => nms.get(id),
+            setNoHist: (v) => {
+              nohist = !!v;
+            },
+            get nohist() {
+              return nohist;
             },
             get name() {
               return nick;
@@ -2475,6 +2528,7 @@
           }
           async function sendIds(l, ids) {
             const g = await W.call("crdt.get", [ids]);
+            if (Mesh.nohist) g.ms = g.ms.filter((m) => m.l >= l.born);
             if (!g.ms.length && g.rm.length)
               Rtc.send(l, { k: "ms", a: [], r: g.rm, h: 5 });
             for (let i = 0; i < g.ms.length; i += 12)
@@ -2714,7 +2768,7 @@
             W_ = 0,
             H_ = 0;
           const names = new Map(),
-            label = (id) => names.get(id) || id.slice(0, 4),
+            label = (id) => Mesh.nameOf(id) || names.get(id) || id.slice(0, 4),
             remember = (id, n) => {
               if (!n) return;
               names.delete(id);
@@ -3405,6 +3459,14 @@
           $("nm").onblur = () => {
             $("nm").value = Mesh.name;
           };
+          try {
+            $("nh").checked = localStorage.getItem("mc_nohist") === "1";
+          } catch (e) {}
+          $("nh").onchange = () => {
+            try {
+              localStorage.setItem("mc_nohist", $("nh").checked ? "1" : "0");
+            } catch (e) {}
+          };
           let curCode = "";
           M.qstatus = (s) => {
             $("qs").textContent =
@@ -3416,6 +3478,10 @@
           };
           async function start(code, q) {
             curCode = code;
+            Mesh.setNoHist(AL.indexOf(code[0]) >= 0 && AL.indexOf(code[0]) & 1);
+            try {
+              sessionStorage.setItem("mc_code", code);
+            } catch (e) {}
             $("empty").hidden = true;
             if (!q) tog("pc", true);
             $("code").textContent = code.match(/.{4}/g).join("-");
@@ -3427,13 +3493,15 @@
               toast("Could not start: " + e.message, "err");
             }
           }
-          $("bNew").onclick = () =>
-            start(
-              Array.from(
-                crypto.getRandomValues(new Uint8Array(16)),
-                (b) => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 32],
-              ).join(""),
+          const AL = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+          $("bNew").onclick = () => {
+            const c = Array.from(
+              crypto.getRandomValues(new Uint8Array(16)),
+              (b) => AL[b % 32],
             );
+            c[0] = AL[(AL.indexOf(c[0]) & 30) | ($("nh").checked ? 1 : 0)];
+            start(c.join(""));
+          };
           $("bJoin").onclick = () => {
             const v = $("jc").value,
               m = v.match(/#c=([A-Za-z0-9-]+)/),
@@ -3460,6 +3528,12 @@
             history.replaceState(null, "", location.pathname + location.search);
             document.body.dataset.tab = "con";
             start(hc[1], 1);
+          } else {
+            let sc = "";
+            try {
+              sc = sessionStorage.getItem("mc_code") || "";
+            } catch (e) {}
+            if (/^[A-Za-z0-9]{16}$/.test(sc)) start(sc, 1);
           }
           if (/^#[oas]=/.test(location.hash)) {
             $("blob").value = location.href;
