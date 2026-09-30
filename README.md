@@ -57,6 +57,14 @@ The optional **Network** panel shows a live force-directed map of peers (layout 
 
 Dropped peers enter a priority retry queue (exponential backoff, checked every 2 s). On network change (`online`), tab resume/unlock (`visibilitychange`, `resume`, `pageshow`) the app re-opens the broker socket, pings every link, drops the ones that don't answer within 3.5 s, clears failure back-off and redials all known peers. The broker connection has its own keep-alive watchdog (reconnects after 45 s of silence). A peer that re-announces while we hold a stale link replaces it. Peer lists expire after ~60 s so closed tabs do not linger.
 
+## Usernames
+
+Optional name (max 16 characters, control characters and `<>` stripped) set in the Invite panel and stored in `localStorage` (`mc_name`). It travels inside each message (covered by the message hash, so relays cannot alter it) and in typing events; received bubbles show it instead of the short ID (hover for the ID). Names are not unique or authenticated — bubble colour is derived from the sender ID.
+
+## Live map
+
+The Network panel shows every peer with its state (connected, unstable, connecting, reconnecting with retry countdown, disconnected, via mesh), RTT/score/loss, animated links, broker and network status, and an event log.
+
 ## Limits
 
 - Mesh is O(n²) connections; tuned for 2–10 peers, degrades to star beyond.

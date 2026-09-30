@@ -237,6 +237,12 @@
       .msg b {
         font-size: 11px;
         margin-right: 8px;
+        display: inline-block;
+        max-width: 9em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        vertical-align: bottom;
       }
       .tk {
         font-size: 10px;
@@ -283,8 +289,43 @@
       }
       #g {
         width: 100%;
-        height: 230px;
+        height: 300px;
         display: block;
+      }
+      #lg {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 12px;
+        font-size: 11px;
+        color: var(--d);
+      }
+      #lg i {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        margin-right: 4px;
+      }
+      #ev {
+        font:
+          12px ui-monospace,
+          Menlo,
+          monospace;
+        max-height: 140px;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        color: var(--d);
+      }
+      #ev .ok {
+        color: var(--ok);
+      }
+      #ev .err {
+        color: var(--er);
+      }
+      #ev .warn {
+        color: #8a6a2c;
       }
       .seg {
         display: flex;
@@ -376,7 +417,12 @@
       <div class="pnl" id="pc">
         <div>
           <div class="box">
-            <button id="bNew" class="pri" style="padding: 11px">
+            <input
+              id="nm"
+              maxlength="16"
+              autocomplete="nickname"
+              placeholder="Your name (optional, max 16 characters)"
+            /><button id="bNew" class="pri" style="padding: 11px">
               Create private room
             </button>
             <div class="row">
@@ -458,10 +504,10 @@
       <div class="pnl" id="pn">
         <div>
           <div class="box">
-            <div style="font-size: 12px; color: var(--d)">
-              Live map of who is connected to whom
-            </div>
-            <canvas id="g" aria-label="Network graph"></canvas>
+            <div id="ms" style="font-size: 12px; color: var(--d)"></div>
+            <canvas id="g" aria-label="Live network map"></canvas>
+            <div id="lg"></div>
+            <div id="ev"></div>
           </div>
         </div>
       </div>
@@ -495,6 +541,15 @@
         "use strict";
         const $ = (id) => document.getElementById(id),
           now = Date.now;
+        const cleanName = (s) =>
+          Array.from(
+            String(s || "")
+              .replace(/[\u0000-\u001f\u007f<>]/g, "")
+              .replace(/\s+/g, " ")
+              .trim(),
+          )
+            .slice(0, 16)
+            .join("");
         const rid = () =>
           Array.from(crypto.getRandomValues(new Uint8Array(4)), (x) =>
             x.toString(16).padStart(2, "0"),
@@ -688,7 +743,19 @@
             C.l = L;
           };
           const mid = (m) =>
-            sha(m.s + "|" + m.l + "." + m.c + "|" + m.q + "|" + m.x);
+            sha(
+              m.s +
+                "|" +
+                m.l +
+                "." +
+                m.c +
+                "|" +
+                m.q +
+                "|" +
+                (m.n || "") +
+                "|" +
+                m.x,
+            );
           const valid = (m) =>
             m &&
             /^[0-9a-f]{64}$/.test(m.id) &&
@@ -698,6 +765,8 @@
             Number.isSafeInteger(m.q) &&
             typeof m.x === "string" &&
             m.x.length <= 1000 &&
+            (m.n === undefined ||
+              (typeof m.n === "string" && m.n.length <= 32)) &&
             m.l <= Date.now() + 36e5;
           function add(m) {
             if (C.m.has(m.id)) return false;
@@ -733,7 +802,7 @@
           ops.init = (me) => {
             C.me = me;
           };
-          ops["crdt.local"] = async (x) => {
+          ops["crdt.local"] = async (x, n) => {
             tick();
             const q = (C.vv[C.me] || 0) + 1;
             C.vv[C.me] = q;
@@ -744,6 +813,7 @@
               q,
               x: String(x).slice(0, 1000),
             };
+            if (n) m.n = String(n).slice(0, 32);
             m.id = await mid(m);
             add(m);
             return m;
@@ -1290,7 +1360,7 @@
               t = setTimeout(() => {
                 pc.removeEventListener("icegatheringstatechange", f);
                 r();
-              }, 4000);
+              }, 3000);
               pc.addEventListener("icegatheringstatechange", f);
             });
           async function offer(l) {
@@ -1514,6 +1584,7 @@
             close,
             kick,
             pub,
+            idle: () => Date.now() - lastRx,
             get ready() {
               return ok;
             },
@@ -1532,7 +1603,8 @@
             hub = null,
             hbT = 0,
             bn = 0,
-            ever = false;
+            ever = false,
+            nick = "";
           const links = new Map(),
             pend = new Map(),
             dial = new Map(),
@@ -1546,7 +1618,14 @@
             warns = [],
             fs = [],
             sgs = new Map();
+          const evs = [];
+          let bst = "connecting";
+          const evt = (m, k) => {
+            evs.unshift({ t: now(), m, k });
+            if (evs.length > 40) evs.pop();
+          };
           const warn = (m) => {
+            evt(m, "warn");
             warns.unshift({ t: now(), m });
             warns.length = Math.min(warns.length, 5);
             on.toast(m, "warn");
@@ -1606,6 +1685,16 @@
             f.n++;
             f.t = now() + Math.min(60000, 5000 * f.n * f.n);
             fails.set(id, f);
+            evt(
+              "Dial to " +
+                id.slice(0, 4) +
+                " failed (attempt " +
+                f.n +
+                ", next in " +
+                Math.round((f.t - now()) / 1000) +
+                "s)",
+              "warn",
+            );
             if (f.n === 3)
               warn(
                 "Having trouble reaching " +
@@ -1619,6 +1708,10 @@
             kill(l);
             if (id) {
               known.set(id, now());
+              evt(
+                "Lost " + id.slice(0, 4) + " (" + why + ") — will retry",
+                "err",
+              );
               adj.delete(id);
               flaps.set(id, (flaps.get(id) || 0) + 1);
               retry.set(id, { n: 0, at: now() + 3000, pr: l.score });
@@ -1667,7 +1760,8 @@
             l.init = true;
             l.want = id;
             dial.set(id, l);
-            expire(l, 25000);
+            evt("Dialing " + id.slice(0, 4), "info");
+            expire(l, 15000);
             try {
               const sdp = await Rtc.offer(l);
               if (!l.dead)
@@ -1843,6 +1937,7 @@
             known.set(p.id, now());
             clearTimeout(l.to);
             clearTimeout(l.wd);
+            evt("Connected to " + p.id.slice(0, 4), "ok");
             topo();
             on.linked(p.id);
             Gossip.hi(l);
@@ -1945,10 +2040,7 @@
               .sort((a, b) => a.score - b.score);
             while (links.size > c && arr.length) {
               const l = arr.shift();
-              on.toast(
-                "Pruned low-score link " + l.id + " (score " + l.score + ")",
-                "info",
-              );
+              evt("Pruned low-score link " + l.id.slice(0, 4), "warn");
               Rtc.send(l, { k: "by" });
               setTimeout(() => {
                 kill(l);
@@ -2023,35 +2115,59 @@
           }
           function graph() {
             const n = now(),
-              nodes = [{ id: me, st: "self" }],
-              ix = new Set([me]),
+              nodes = new Map(),
               edges = [],
-              ek = new Set(),
-              add = (id, st, d, rtt) => {
-                if (!ix.has(id)) {
-                  ix.add(id);
-                  nodes.push({ id, st, direct: d, rtt });
-                }
-              };
+              ek = new Set();
+            const put = (id, o) => {
+              const p = nodes.get(id);
+              if (!p || o.pr > p.pr) nodes.set(id, { id, ...o });
+            };
+            nodes.set(me, { id: me, st: "self", pr: 9 });
             links.forEach((l) => {
-              add(l.id, l.st, true, l.rtt);
-              edges.push([me, l.id]);
+              put(l.id, {
+                st: l.st,
+                pr: 8,
+                rtt: l.rtt,
+                score: l.score,
+                loss: l.loss,
+              });
+              edges.push([me, l.id, l.st, l.rtt]);
+            });
+            dial.forEach((l, id) => {
+              if (!links.has(id)) {
+                put(id, { st: "dialing", pr: 7, age: n - l.born });
+                edges.push([me, id, "dialing"]);
+              }
+            });
+            retry.forEach((r, id) => {
+              if (!links.has(id) && !dial.has(id)) {
+                put(id, {
+                  st: "retry",
+                  pr: 6,
+                  tries: r.n,
+                  inMs: Math.max(0, r.at - n),
+                });
+                edges.push([me, id, "retry"]);
+              }
             });
             adj.forEach((v, k) => {
               if (n - v.t < 40000) {
-                add(k, "via", false);
+                put(k, { st: "via", pr: 3 });
                 v.n.forEach((x) => {
-                  add(x, "via", false);
+                  if (x === me) return;
+                  put(x, { st: "via", pr: 3 });
                   const e = [k, x].sort().join();
-                  if (x !== me && !ek.has(e)) {
+                  if (!ek.has(e)) {
                     ek.add(e);
-                    edges.push([k, x]);
+                    edges.push([k, x, "via"]);
                   }
                 });
               }
             });
-            known.forEach((t, id) => add(id, "gone", false));
-            return { me, nodes, edges };
+            known.forEach((t, id) =>
+              put(id, { st: "gone", pr: 1, ago: n - t }),
+            );
+            return { me, nodes: [...nodes.values()], edges };
           }
           function diag() {
             const g = graph(),
@@ -2061,6 +2177,8 @@
               mode,
               hub,
               N,
+              bst,
+              events: evs.slice(0, 10),
               density: N > 1 ? g.edges.length / ((N * (N - 1)) / 2) : 0,
               warns,
               peers: [...links.values()].map((l) => ({
@@ -2177,6 +2295,8 @@
                   const ol = links.get(p.f);
                   if (ol && now() - ol.last > 6000)
                     drop(ol, "peer re-announced");
+                  const dl = dial.get(p.f);
+                  if (dl && now() - dl.born > 4000) kill(dl);
                   if (t.endsWith("/all")) bpub(p.f, { k: "hi", f: me });
                   fillSoon();
                 } else if (
@@ -2188,6 +2308,8 @@
                   handleSg(p);
               },
               (st) => {
+                bst = st;
+                evt("Rendezvous server: " + st, st === "up" ? "ok" : "warn");
                 on.qstatus(st);
                 if (st === "up") bpub("all", { k: "hi", f: me });
               },
@@ -2200,27 +2322,35 @@
               .sort((a, b) => b[1].pr - a[1].pr)
               .slice(0, 2)
               .forEach(([id, r]) => {
-                if (!known.has(id) || links.has(id)) {
+                if (links.has(id)) {
                   retry.delete(id);
                   return;
                 }
                 r.n++;
                 r.at = n + Math.min(30000, 3000 * 2 ** r.n);
                 if (r.n > 12) retry.delete(id);
-                else reach(id);
+                else {
+                  evt("Retry #" + r.n + " → " + id.slice(0, 4), "info");
+                  reach(id);
+                }
               });
           }
           /* network change / tab resume / screen unlock: re-open broker, verify links, redial everything */
-          function wake() {
+          function wake(force) {
             if (off) return;
             const t0 = now();
+            evt("Network/tab resumed — checking links", "info");
             fails.clear();
             nudge.clear();
             retry.forEach((r) => {
               r.at = 0;
             });
             known.forEach((t, k) => known.set(k, t0));
-            Broker.kick();
+            [
+              ...dial.values(),
+              ...[...pend.values()].filter((l) => !l.manual),
+            ].forEach(kill);
+            if (force || !Broker.ready || Broker.idle() > 20000) Broker.kick();
             links.forEach((l) => Rtc.send(l, { k: "p", t: t0 }));
             setTimeout(() => {
               if (off) return;
@@ -2231,7 +2361,7 @@
                 if (!links.has(id)) reach(id);
               });
               fill();
-            }, 3500);
+            }, 2500);
           }
           hbT = setInterval(beat, 2000);
           function destroy() {
@@ -2249,6 +2379,13 @@
             links,
             quick,
             wake,
+            evt,
+            setName: (v) => {
+              nick = cleanName(v);
+            },
+            get name() {
+              return nick;
+            },
             view,
             learn,
             graph,
@@ -2303,7 +2440,7 @@
               Rtc.send(l, { k: "ms", a, r, h });
           }
           async function say(x) {
-            const m = await W.call("crdt.local", [x]);
+            const m = await W.call("crdt.local", [x, Mesh.name]);
             UI.dirty();
             push([m], [], 0, null);
           }
@@ -2318,7 +2455,7 @@
             const i = rid();
             sn(i);
             for (const l of sampleW(open(), 2))
-              Rtc.send(l, { k: "ty", i, s: Mesh.me, h: 0 });
+              Rtc.send(l, { k: "ty", i, s: Mesh.me, n: Mesh.name, h: 0 });
           }
           async function ae(l) {
             const s = await W.call("crdt.sum");
@@ -2423,7 +2560,7 @@
                   break;
                 case "ty":
                   if (!sn(p.i)) return;
-                  UI.typing(String(p.s).slice(0, 8));
+                  UI.typing(String(p.s).slice(0, 8), cleanName(p.n));
                   if ((p.h | 0) < 3)
                     for (const x of sampleW(
                       open().filter((y) => y !== l),
@@ -2433,6 +2570,7 @@
                         k: "ty",
                         i: p.i,
                         s: p.s,
+                        n: p.n,
                         h: (p.h | 0) + 1,
                       });
                   break;
@@ -2575,6 +2713,14 @@
             glastTxt = "",
             W_ = 0,
             H_ = 0;
+          const names = new Map(),
+            label = (id) => names.get(id) || id.slice(0, 4),
+            remember = (id, n) => {
+              if (!n) return;
+              names.delete(id);
+              names.set(id, n);
+              if (names.size > 200) names.delete(names.keys().next().value);
+            };
           const el = (t, c, x) => {
             const e = document.createElement(t);
             if (c) e.className = c;
@@ -2599,7 +2745,13 @@
             const own = m.s === Mesh.me,
               d = el("div", "msg" + (own ? " me" : ""));
             d.dataset.id = m.id;
-            const a = el("b", "", own ? "you" : m.s.slice(0, 4));
+            remember(m.s, cleanName(m.n));
+            const a = el(
+              "b",
+              "",
+              own ? "you" : cleanName(m.n) || m.s.slice(0, 4),
+            );
+            a.title = m.s;
             a.style.color = "hsl(" + (hs(m.s) % 360) + " 45% 38%)";
             d.append(
               a,
@@ -2665,10 +2817,11 @@
             }
           };
           const tyShow = () => {
-            const a = [...tyT.keys()].map((x) => x.slice(0, 4));
+            const a = [...tyT.keys()].map(label);
             $("ty").textContent = a.length ? a.join(", ") + " typing…" : "";
           };
-          function typing(s) {
+          function typing(s, n) {
+            remember(s, n);
             clearTimeout(tyT.get(s));
             tyT.set(
               s,
@@ -2715,59 +2868,175 @@
             self: "#c2703d",
             open: "#5b8a5f",
             unstable: "#d9a13b",
-            connecting: "#a89d8a",
-            gone: "#c0564b",
+            dialing: "#3f7fbf",
+            retry: "#c0564b",
+            gone: "#a89d8a",
             via: "#9a7fb8",
           };
+          const LBL = {
+            open: "Connected",
+            unstable: "Unstable",
+            dialing: "Connecting",
+            retry: "Reconnecting",
+            gone: "Disconnected",
+            via: "Via mesh",
+          };
+          $("lg").replaceChildren(
+            ...Object.keys(LBL).map((k) => {
+              const s = el("span", "", LBL[k]),
+                i = el("i");
+              i.style.background = COL[k];
+              s.prepend(i);
+              return s;
+            }),
+          );
+          const sub = (n) =>
+            n.st === "self"
+              ? "this device"
+              : n.st === "open"
+                ? "connected" +
+                  (n.rtt != null ? " · " + Math.round(n.rtt) + "ms" : "") +
+                  " · score " +
+                  n.score
+                : n.st === "unstable"
+                  ? "unstable · loss " + Math.round((n.loss || 0) * 100) + "%"
+                  : n.st === "dialing"
+                    ? "connecting " + Math.round(n.age / 1000) + "s"
+                    : n.st === "retry"
+                      ? "retry #" +
+                        n.tries +
+                        " in " +
+                        Math.ceil(n.inMs / 1000) +
+                        "s"
+                      : n.st === "gone"
+                        ? "disconnected · " + Math.round(n.ago / 1000) + "s ago"
+                        : "via mesh";
+          const ES = {
+            open: ["#5b8a5f", 2, []],
+            unstable: ["#d9a13b", 2, [6, 5]],
+            dialing: ["#3f7fbf", 1.6, [5, 5]],
+            retry: ["#c0564b", 1.2, [2, 5]],
+            via: ["rgba(154,127,184,.5)", 1, [2, 4]],
+          };
+          let ls = 0;
+          function layout() {
+            const key =
+              G.nodes
+                .map((n) => n.id)
+                .sort()
+                .join() +
+              "|" +
+              G.edges
+                .map((e) => e[0] + "-" + e[1])
+                .sort()
+                .join();
+            if (key === glast) return;
+            glast = key;
+            const ix = new Map(G.nodes.map((n, i) => [n.id, i]));
+            W.call("lay.set", [
+              G.nodes.map((n) => n.id),
+              G.edges
+                .map(([a, b]) => [ix.get(a), ix.get(b)])
+                .filter((e) => e[0] != null && e[1] != null),
+              Mesh.me,
+            ]).catch(() => {});
+          }
           function frame(t) {
             if (document.hidden || !$("pn").classList.contains("on")) {
               run = false;
               return;
             }
+            G = Mesh.graph();
+            if (t - ls > 400) {
+              ls = t;
+              layout();
+            }
             cx.clearRect(0, 0, W_, H_);
-            if (G) {
-              const R = Math.min(W_, H_) / 2 - 26,
-                X = W_ / 2,
-                Y = H_ / 2,
-                P = (id) => {
-                  const p = pm.get(id);
-                  return p ? [X + p[0] * R, Y + p[1] * R] : null;
-                };
-              cx.lineWidth = 1.2;
-              for (const [a, b] of G.edges) {
-                const A = P(a),
-                  B = P(b);
-                if (!A || !B) continue;
-                const d = a === G.me || b === G.me;
-                cx.strokeStyle = d
-                  ? "rgba(194,112,61,.6)"
-                  : "rgba(140,130,114,.35)";
-                cx.setLineDash(d ? [6, 6] : [2, 4]);
-                cx.lineDashOffset = -t / 60;
-                cx.beginPath();
-                cx.moveTo(A[0], A[1]);
-                cx.lineTo(B[0], B[1]);
-                cx.stroke();
-              }
+            const X = W_ / 2,
+              Y = H_ / 2,
+              P = (id) => {
+                const p = pm.get(id);
+                return p
+                  ? [X + p[0] * (W_ / 2 - 46), Y + p[1] * (H_ / 2 - 40)]
+                  : null;
+              };
+            for (const [a, b, k, rtt] of G.edges) {
+              const A = P(a),
+                B = P(b);
+              if (!A || !B) continue;
+              const S = ES[k] || ["#ccc", 1, []];
+              cx.beginPath();
+              cx.moveTo(A[0], A[1]);
+              cx.lineTo(B[0], B[1]);
+              cx.strokeStyle = S[0];
+              cx.lineWidth = S[1];
+              cx.setLineDash(S[2]);
+              cx.lineDashOffset = k === "dialing" ? -t / 40 : 0;
+              cx.stroke();
               cx.setLineDash([]);
-              cx.font = "10px system-ui";
-              cx.textAlign = "center";
-              for (const n of G.nodes) {
-                const p = P(n.id);
-                if (!p) continue;
-                const c = COL[n.st] || COL.via,
-                  r =
-                    n.id === G.me
-                      ? 9
-                      : 7 + (n.st === "open" ? Math.sin(t / 300) * 0.8 : 0);
-                cx.fillStyle = c;
+              if (k === "open") {
+                const f = (t / 1200) % 1;
+                cx.fillStyle = S[0];
                 cx.beginPath();
-                cx.arc(p[0], p[1], r, 0, 6.283);
+                cx.arc(
+                  A[0] + (B[0] - A[0]) * f,
+                  A[1] + (B[1] - A[1]) * f,
+                  2.5,
+                  0,
+                  6.283,
+                );
                 cx.fill();
-                cx.shadowBlur = 0;
-                cx.fillStyle = "#8c8272";
-                cx.fillText(n.id.slice(0, 4), p[0], p[1] + r + 11);
               }
+              if (rtt != null && (k === "open" || k === "unstable")) {
+                cx.fillStyle = "#8c8272";
+                cx.font = "10px system-ui";
+                cx.textAlign = "center";
+                cx.fillText(
+                  Math.round(rtt) + "ms",
+                  (A[0] + B[0]) / 2,
+                  (A[1] + B[1]) / 2 - 5,
+                );
+              }
+            }
+            for (const n of G.nodes) {
+              const p = P(n.id);
+              if (!p) continue;
+              const c = COL[n.st] || COL.via,
+                me = n.id === G.me,
+                r = me ? 10 : 8;
+              if (n.st === "dialing" || n.st === "retry") {
+                const q = (t / 900) % 1;
+                cx.strokeStyle = c;
+                cx.lineWidth = 1.5;
+                cx.globalAlpha = 1 - q;
+                cx.beginPath();
+                cx.arc(p[0], p[1], r + q * 14, 0, 6.283);
+                cx.stroke();
+                cx.globalAlpha = 1;
+              }
+              cx.beginPath();
+              cx.arc(p[0], p[1], r, 0, 6.283);
+              if (n.st === "gone" || n.st === "retry") {
+                cx.fillStyle = "#fffdf8";
+                cx.fill();
+                cx.lineWidth = 2;
+                cx.strokeStyle = c;
+                cx.stroke();
+              } else {
+                cx.fillStyle = c;
+                cx.fill();
+              }
+              cx.textAlign = "center";
+              cx.fillStyle = "#2e2922";
+              cx.font = "11px system-ui";
+              cx.fillText(
+                me ? Mesh.name || "you" : label(n.id),
+                p[0],
+                p[1] + r + 13,
+              );
+              cx.fillStyle = "#8c8272";
+              cx.font = "10px system-ui";
+              cx.fillText(sub(n), p[0], p[1] + r + 25);
             }
             requestAnimationFrame(frame);
           }
@@ -2780,21 +3049,7 @@
           document.addEventListener("visibilitychange", kick);
           function sync() {
             G = Mesh.graph();
-            const key =
-              G.nodes.map((n) => n.id).join() +
-              "|" +
-              G.edges.map((e) => e.join("-")).join();
-            if (key !== glast) {
-              glast = key;
-              const ix = new Map(G.nodes.map((n, i) => [n.id, i]));
-              W.call("lay.set", [
-                G.nodes.map((n) => n.id),
-                G.edges
-                  .map(([a, b]) => [ix.get(a), ix.get(b)])
-                  .filter((e) => e[0] != null && e[1] != null),
-                Mesh.me,
-              ]).catch(() => {});
-            }
+            layout();
             kick();
           }
           M.change = () => {
@@ -2820,6 +3075,34 @@
                   ? "Waiting for peers…"
                   : "Not connected";
             s.className = "pill" + (n ? " ok" : "");
+            if ($("pn").classList.contains("on")) {
+              $("ms").textContent =
+                "Network: " +
+                (navigator.onLine ? "online" : "OFFLINE") +
+                " · Rendezvous: " +
+                (d.bst === "up"
+                  ? "connected"
+                  : d.bst === "connecting"
+                    ? "connecting…"
+                    : "unreachable, retrying") +
+                " · Mode: " +
+                d.mode +
+                (d.hub ? " (hub " + d.hub.slice(0, 4) + ")" : "") +
+                " · Density " +
+                Math.round(d.density * 100) +
+                "%";
+              $("ev").replaceChildren(
+                ...d.events.map((e) =>
+                  el(
+                    "div",
+                    e.k || "",
+                    new Date(e.t).toLocaleTimeString([], { hour12: false }) +
+                      "  " +
+                      e.m,
+                  ),
+                ),
+              );
+            }
             return d;
           }
           const tog = (id, f) => {
@@ -2828,7 +3111,10 @@
               "on",
               f === undefined ? !e.classList.contains("on") : f,
             );
-            if (id === "pn") kick();
+            if (id === "pn") {
+              kick();
+              diag();
+            }
           };
           $("bInv").onclick = () => tog("pc");
           $("bNet").onclick = () => tog("pn");
@@ -3101,6 +3387,24 @@
             clearInterval(gt);
             gt = $("gist").value.trim() ? setInterval(gpoll, 60000) : 0;
           };
+          let saved = "";
+          try {
+            saved = cleanName(localStorage.getItem("mc_name"));
+          } catch (e) {}
+          Mesh.setName(saved);
+          $("nm").value = saved;
+          $("nm").oninput = () => {
+            const v = cleanName($("nm").value);
+            Mesh.setName(v);
+            try {
+              v
+                ? localStorage.setItem("mc_name", v)
+                : localStorage.removeItem("mc_name");
+            } catch (e) {}
+          };
+          $("nm").onblur = () => {
+            $("nm").value = Mesh.name;
+          };
           let curCode = "";
           M.qstatus = (s) => {
             $("qs").textContent =
@@ -3165,11 +3469,13 @@
           }
           addEventListener("online", () => {
             toast("Back online — reconnecting…", "info");
-            Mesh.wake();
+            Mesh.evt("Device back online", "ok");
+            Mesh.wake(true);
           });
-          addEventListener("offline", () =>
-            toast("You are offline — will reconnect automatically", "warn"),
-          );
+          addEventListener("offline", () => {
+            Mesh.evt("Device went offline", "err");
+            toast("You are offline — will reconnect automatically", "warn");
+          });
           addEventListener("pageshow", (e) => {
             if (e.persisted) Mesh.wake();
           });
