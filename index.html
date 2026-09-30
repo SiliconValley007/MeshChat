@@ -1,0 +1,3114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <title>MeshChat</title>
+    <meta name="theme-color" content="#faf6ee" />
+    <meta
+      name="description"
+      content="Serverless end-to-end encrypted peer-to-peer chat. No accounts, no servers."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%2714%27 fill=%27%23c2703d%27/%3E%3C/svg%3E"
+    />
+    <style>
+      :root {
+        --bg: #faf6ee;
+        --sf: #fffdf8;
+        --bd: #e9e0d0;
+        --ac: #c2703d;
+        --ac2: #f3e2d0;
+        --t: #2e2922;
+        --d: #8c8272;
+        --ok: #5b8a5f;
+        --wn: #d9a13b;
+        --er: #c0564b;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      html,
+      body {
+        height: 100%;
+        overflow-x: hidden;
+      }
+      body {
+        height: 100dvh;
+      }
+      main > * {
+        min-width: 0;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      body {
+        background: var(--bg);
+        color: var(--t);
+        font:
+          15px/1.5 ui-rounded,
+          "SF Pro Rounded",
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+        display: flex;
+        flex-direction: column;
+        padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+      }
+      header,
+      main {
+        width: 100%;
+      }
+      header {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 14px 16px 10px;
+      }
+      .logo {
+        font-weight: 650;
+        font-size: 17px;
+      }
+      .pill {
+        font-size: 12px;
+        color: var(--d);
+        background: #f1eadb;
+        border-radius: 99px;
+        padding: 3px 11px;
+      }
+      .pill.ok {
+        color: var(--ok);
+      }
+      main {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      button {
+        background: var(--sf);
+        border: 1px solid var(--bd);
+        color: var(--t);
+        border-radius: 12px;
+        padding: 8px 14px;
+        font: inherit;
+        cursor: pointer;
+        transition:
+          border-color 0.15s,
+          background 0.15s,
+          transform 0.1s;
+      }
+      button:hover {
+        border-color: var(--ac);
+      }
+      button:active {
+        transform: scale(0.97);
+      }
+      button.pri,
+      .seg button.on {
+        background: var(--ac);
+        border-color: var(--ac);
+        color: #fff;
+      }
+      input,
+      textarea {
+        font-size: 16px !important;
+        background: var(--sf);
+        border: 1px solid var(--bd);
+        color: var(--t);
+        border-radius: 12px;
+        padding: 9px 12px;
+        font: inherit;
+        width: 100%;
+        min-width: 0;
+      }
+      input:focus,
+      textarea:focus,
+      button:focus-visible {
+        outline: 2px solid var(--ac);
+        outline-offset: 1px;
+      }
+      .pnl {
+        display: grid;
+        grid-template-rows: 0fr;
+        opacity: 0;
+        visibility: hidden;
+        transition:
+          grid-template-rows 0.35s ease,
+          opacity 0.3s ease,
+          visibility 0s 0.35s;
+      }
+      .pnl.on {
+        grid-template-rows: 1fr;
+        opacity: 1;
+        visibility: visible;
+        transition-delay: 0s;
+      }
+      .pnl > div {
+        overflow: hidden;
+        min-height: 0;
+      }
+      .box {
+        background: var(--sf);
+        border: 1px solid var(--bd);
+        border-radius: 16px;
+        padding: 14px;
+        margin: 0 12px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        box-shadow: 0 2px 16px rgba(120, 90, 50, 0.06);
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .row > * {
+        flex: 1;
+      }
+      .pad {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .code {
+        font:
+          600 20px ui-monospace,
+          Menlo,
+          monospace;
+        letter-spacing: 3px;
+        color: var(--ac);
+        text-align: center;
+        user-select: all;
+      }
+      details summary {
+        cursor: pointer;
+        color: var(--d);
+        font-size: 13px;
+      }
+      #qs,
+      #qrl {
+        font-size: 12px;
+        color: var(--d);
+        text-align: center;
+      }
+      #chat {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        background: var(--sf);
+        border: solid var(--bd);
+        border-width: 1px 0 0;
+        position: relative;
+        overflow: hidden;
+      }
+      #log {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px max(16px, env(safe-area-inset-right)) 16px
+          max(16px, env(safe-area-inset-left));
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        overscroll-behavior: contain;
+      }
+      .msg {
+        max-width: 80%;
+        padding: 8px 13px;
+        border-radius: 16px;
+        background: #f7f1e5;
+        align-self: flex-start;
+        word-break: break-word;
+      }
+      .msg.me {
+        align-self: flex-end;
+        background: var(--ac2);
+      }
+      .msg b {
+        font-size: 11px;
+        margin-right: 8px;
+      }
+      .tk {
+        font-size: 10px;
+        color: var(--d);
+        margin-left: 8px;
+        font-style: normal;
+      }
+      #ty {
+        height: 18px;
+        padding: 0 18px;
+        font-size: 12px;
+        color: var(--d);
+      }
+      #f {
+        display: flex;
+        gap: 8px;
+        padding: 10px 12px 12px;
+      }
+      #empty {
+        position: absolute;
+        inset: 0 0 70px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        text-align: center;
+        padding: 24px;
+      }
+      #empty h2 {
+        font-weight: 600;
+      }
+      #empty p {
+        color: var(--d);
+        max-width: 340px;
+        font-size: 14px;
+      }
+      #empty .row {
+        justify-content: center;
+      }
+      #empty button {
+        flex: none;
+        padding: 10px 20px;
+      }
+      #g {
+        width: 100%;
+        height: 230px;
+        display: block;
+      }
+      .seg {
+        display: flex;
+        gap: 4px;
+      }
+      .seg button {
+        flex: 1;
+        padding: 5px;
+      }
+      .m {
+        display: none;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .m.on {
+        display: flex;
+      }
+      #qr {
+        background: #fff;
+        border: 1px solid var(--bd);
+        border-radius: 10px;
+        align-self: center;
+        max-width: 100%;
+        image-rendering: pixelated;
+        display: none;
+      }
+      #cam {
+        width: 100%;
+        border-radius: 10px;
+        max-height: 200px;
+        background: #000;
+      }
+      #toasts {
+        position: fixed;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: calc(84px + env(safe-area-inset-bottom));
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        z-index: 9;
+        width: min(380px, calc(100vw - 24px));
+        pointer-events: none;
+      }
+      .toast {
+        background: var(--t);
+        color: #fffdf8;
+        border-radius: 12px;
+        padding: 9px 14px;
+        font-size: 13px;
+        animation: in 0.25s;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+      }
+      .toast.err {
+        background: var(--er);
+      }
+      .toast.warn {
+        background: #8a6a2c;
+      }
+      .toast.ok {
+        background: var(--ok);
+      }
+      @keyframes in {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+      }
+      @media (max-width: 600px) {
+        .msg {
+          max-width: 90%;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <b class="logo">MeshChat</b><span id="st" class="pill">Not connected</span
+      ><span style="flex: 1"></span><button id="bNet">Network</button
+      ><button id="bInv" class="pri">Invite</button>
+    </header>
+    <main>
+      <div class="pnl" id="pc">
+        <div>
+          <div class="box">
+            <button id="bNew" class="pri" style="padding: 11px">
+              Create private room
+            </button>
+            <div class="row">
+              <input
+                id="jc"
+                maxlength="200"
+                placeholder="…or paste an invite link / code"
+                style="flex: 2"
+              /><button id="bJoin">Join</button>
+            </div>
+            <div class="code" id="code" hidden></div>
+            <div class="row" id="cr" hidden>
+              <button id="bCL" class="pri">Copy invite link</button
+              ><button id="bCC">Copy code</button>
+            </div>
+            <div id="qs"></div>
+            <details>
+              <summary>
+                Advanced: manual pairing (QR / paste / link / Gist)
+              </summary>
+              <div class="pad" style="padding: 8px 0">
+                <div class="seg" id="meth">
+                  <button data-m="qr">1 · QR</button
+                  ><button data-m="paste">2 · Paste</button
+                  ><button data-m="link">3 · Link</button
+                  ><button data-m="gist">4 · Gist</button>
+                </div>
+                <div class="row">
+                  <button id="bHost">Host / add peer</button
+                  ><button id="bApply">Apply</button
+                  ><button id="bRe">Reconnect all</button>
+                </div>
+                <div class="m" data-m="qr">
+                  <canvas id="qr"></canvas>
+                  <div id="qrl"></div>
+                  <button id="bScan">Scan QR</button
+                  ><video id="cam" playsinline muted hidden></video>
+                </div>
+                <textarea
+                  id="blob"
+                  rows="3"
+                  placeholder="Paste offer / answer / chunks / state blob or link here, then Apply"
+                ></textarea>
+                <div class="m" data-m="paste">
+                  <button id="bCopy">Copy blob</button>
+                </div>
+                <div class="m" data-m="link">
+                  <input
+                    id="lnk"
+                    readonly
+                    placeholder="Link appears after Host/Apply"
+                  />
+                  <div class="row">
+                    <button id="bLink">Copy link</button
+                    ><button id="bShare">Share</button>
+                  </div>
+                </div>
+                <div class="m" data-m="gist">
+                  <div class="row">
+                    <input
+                      id="gist"
+                      placeholder="Gist ID (paste the blob into it manually)"
+                      style="flex: 3"
+                    /><button id="bGist">Poll</button>
+                  </div>
+                </div>
+                <input
+                  id="pass"
+                  type="password"
+                  placeholder="Passphrase (PSK, authenticates key exchange; set before connecting)"
+                  autocomplete="off"
+                />
+                <button id="bExp">Export state blob</button>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+      <div class="pnl" id="pn">
+        <div>
+          <div class="box">
+            <div style="font-size: 12px; color: var(--d)">
+              Live map of who is connected to whom
+            </div>
+            <canvas id="g" aria-label="Network graph"></canvas>
+          </div>
+        </div>
+      </div>
+      <section id="chat">
+        <div id="log" role="log" aria-live="polite"></div>
+        <div id="empty">
+          <h2>Private chat, no servers</h2>
+          <p>
+            Messages go straight between browsers, end-to-end encrypted. Start a
+            room and send the invite link.
+          </p>
+          <div class="row">
+            <button id="eNew" class="pri">Create room</button
+            ><button id="eJoin">Join room</button>
+          </div>
+        </div>
+        <div id="ty"></div>
+        <form id="f">
+          <input
+            id="in"
+            maxlength="1000"
+            autocomplete="off"
+            placeholder="Message…"
+          /><button class="pri">Send</button>
+        </form>
+      </section>
+    </main>
+    <div id="toasts" role="status"></div>
+    <script>
+      (() => {
+        "use strict";
+        const $ = (id) => document.getElementById(id),
+          now = Date.now;
+        const rid = () =>
+          Array.from(crypto.getRandomValues(new Uint8Array(4)), (x) =>
+            x.toString(16).padStart(2, "0"),
+          ).join("");
+        const hs = (s) => {
+          let h = 0;
+          for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+          return h >>> 0;
+        };
+
+        /* ===================== worker.js (built into a Blob Worker) =====================
+   crypto.js (ECDH+HKDF ratchet+AES-GCM) · crdt.js (OR-Set + HLC + version vector)
+   QR encode/decode · signal codec · force-directed graph layout                 */
+        function workerMain() {
+          "use strict";
+          const E = new TextEncoder(),
+            D = new TextDecoder(),
+            ops = {};
+          const b64 = (u) => {
+            let s = "";
+            for (let i = 0; i < u.length; i += 8192)
+              s += String.fromCharCode.apply(null, u.subarray(i, i + 8192));
+            return btoa(s)
+              .replace(/\+/g, "-")
+              .replace(/\//g, "_")
+              .replace(/=+$/, "");
+          };
+          const unb64 = (s) => {
+            s = s.replace(/-/g, "+").replace(/_/g, "/");
+            while (s.length % 4) s += "=";
+            const r = atob(s),
+              u = new Uint8Array(r.length);
+            for (let i = 0; i < r.length; i++) u[i] = r.charCodeAt(i);
+            return u;
+          };
+          const hex = (u) =>
+            Array.from(u, (x) => x.toString(16).padStart(2, "0")).join("");
+          const sha = async (s) =>
+            hex(
+              new Uint8Array(
+                await crypto.subtle.digest("SHA-256", E.encode(s)),
+              ),
+            );
+          const hs = (s) => {
+            let h = 0;
+            for (let i = 0; i < s.length; i++)
+              h = (h * 31 + s.charCodeAt(i)) | 0;
+            return h >>> 0;
+          };
+          /* ---- crypto.js: ephemeral ECDH P-256 per connection -> HKDF chains -> AES-GCM, ratchet every ROT packets ---- */
+          const S = new Map(),
+            ROT = 50,
+            ECP = { name: "ECDH", namedCurve: "P-256" },
+            Z = new Uint8Array();
+          const hk = async (ikm, salt, info) =>
+            new Uint8Array(
+              await crypto.subtle.deriveBits(
+                { name: "HKDF", hash: "SHA-256", salt, info: E.encode(info) },
+                await crypto.subtle.importKey("raw", ikm, "HKDF", false, [
+                  "deriveBits",
+                ]),
+                256,
+              ),
+            );
+          const adv = async (c) => {
+            c.k = await crypto.subtle.importKey(
+              "raw",
+              await hk(c.ck, Z, "key"),
+              "AES-GCM",
+              false,
+              ["encrypt", "decrypt"],
+            );
+            c.ck = await hk(c.ck, Z, "chain");
+            c.e++;
+          };
+          const seq = (s, q, f) => {
+            const p = s[q].then(f);
+            s[q] = p.catch(() => {});
+            return p;
+          };
+          ops["cx.hs"] = async (sid) => {
+            const kp = await crypto.subtle.generateKey(ECP, false, [
+              "deriveBits",
+            ]);
+            S.set(sid, { kp, qt: Promise.resolve(), qr: Promise.resolve() });
+            return b64(
+              new Uint8Array(
+                await crypto.subtle.exportKey("raw", kp.publicKey),
+              ),
+            );
+          };
+          ops["cx.up"] = async (sid, pub, init, salt) => {
+            const s = S.get(sid);
+            if (!s || !s.kp) throw new Error("no session");
+            const pk = await crypto.subtle.importKey(
+                "raw",
+                unb64(pub),
+                ECP,
+                false,
+                [],
+              ),
+              bits = new Uint8Array(
+                await crypto.subtle.deriveBits(
+                  { name: "ECDH", public: pk },
+                  s.kp.privateKey,
+                  256,
+                ),
+              );
+            s.kp = null;
+            const sl = E.encode(salt),
+              a = await hk(bits, sl, "i2r"),
+              b = await hk(bits, sl, "r2i");
+            s.tx = { ck: init ? a : b, e: -1, n: 0 };
+            s.rx = { ck: init ? b : a, e: -1 };
+            await adv(s.tx);
+            await adv(s.rx);
+            return 1;
+          };
+          ops["cx.enc"] = (sid, str) => {
+            const s = S.get(sid);
+            if (!s || !s.tx) return Promise.reject(new Error("no session"));
+            return seq(s, "qt", async () => {
+              const t = s.tx;
+              if (t.n >= ROT) {
+                await adv(t);
+                t.n = 0;
+              }
+              t.n++;
+              const iv = crypto.getRandomValues(new Uint8Array(12)),
+                ct = new Uint8Array(
+                  await crypto.subtle.encrypt(
+                    { name: "AES-GCM", iv },
+                    t.k,
+                    E.encode(str),
+                  ),
+                ),
+                o = new Uint8Array(12 + ct.length);
+              o.set(iv);
+              o.set(ct, 12);
+              return t.e + "." + b64(o);
+            });
+          };
+          ops["cx.dec"] = (sid, str) => {
+            const s = S.get(sid);
+            if (!s || !s.rx) return Promise.reject(new Error("no session"));
+            return seq(s, "qr", async () => {
+              const r = s.rx,
+                i = str.indexOf("."),
+                e = +str.slice(0, i);
+              if (!(e >= r.e && e - r.e <= 8)) throw new Error("epoch");
+              while (r.e < e) await adv(r);
+              const u = unb64(str.slice(i + 1));
+              return D.decode(
+                await crypto.subtle.decrypt(
+                  { name: "AES-GCM", iv: u.subarray(0, 12) },
+                  r.k,
+                  u.subarray(12),
+                ),
+              );
+            });
+          };
+          ops["cx.drop"] = (sid) => {
+            S.delete(sid);
+          };
+          /* ---- crdt.js: bounded OR-Set of immutable messages + tombstones; HLC ordering; version vector ---- */
+          const CAP = 500,
+            C = {
+              m: new Map(),
+              ord: [],
+              rm: new Map(),
+              vv: {},
+              l: 0,
+              c: 0,
+              me: "",
+            };
+          const cmp = (a, b) =>
+            a.l - b.l ||
+            a.c - b.c ||
+            hs(a.s) - hs(b.s) ||
+            (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+          const tick = (l, c) => {
+            const L = Math.max(C.l, l || 0, Date.now());
+            C.c =
+              L === C.l && L === (l || 0)
+                ? Math.max(C.c, c || 0) + 1
+                : L === C.l
+                  ? C.c + 1
+                  : L === (l || 0)
+                    ? (c || 0) + 1
+                    : 0;
+            C.l = L;
+          };
+          const mid = (m) =>
+            sha(m.s + "|" + m.l + "." + m.c + "|" + m.q + "|" + m.x);
+          const valid = (m) =>
+            m &&
+            /^[0-9a-f]{64}$/.test(m.id) &&
+            /^[0-9a-f]{8}$/.test(m.s) &&
+            Number.isSafeInteger(m.l) &&
+            Number.isSafeInteger(m.c) &&
+            Number.isSafeInteger(m.q) &&
+            typeof m.x === "string" &&
+            m.x.length <= 1000 &&
+            m.l <= Date.now() + 36e5;
+          function add(m) {
+            if (C.m.has(m.id)) return false;
+            const t = C.rm.get(m.id);
+            if (t && t === m.s) return false;
+            if (C.ord.length >= CAP && cmp(m, C.ord[0]) < 0) return false;
+            let lo = 0,
+              hi = C.ord.length;
+            while (lo < hi) {
+              const k = (lo + hi) >> 1;
+              if (cmp(C.ord[k], m) < 0) lo = k + 1;
+              else hi = k;
+            }
+            C.ord.splice(lo, 0, m);
+            C.m.set(m.id, m);
+            if (C.ord.length > CAP) C.m.delete(C.ord.shift().id);
+            C.vv[m.s] = Math.max(C.vv[m.s] || 0, m.q);
+            tick(m.l, m.c);
+            return true;
+          }
+          function doRm(id, s) {
+            const m = C.m.get(id);
+            if (m && m.s !== s) return false;
+            if (C.rm.get(id) === s) return false;
+            C.rm.set(id, s);
+            if (C.rm.size > CAP) C.rm.delete(C.rm.keys().next().value);
+            if (m) {
+              C.m.delete(id);
+              C.ord.splice(C.ord.indexOf(m), 1);
+            }
+            return true;
+          }
+          ops.init = (me) => {
+            C.me = me;
+          };
+          ops["crdt.local"] = async (x) => {
+            tick();
+            const q = (C.vv[C.me] || 0) + 1;
+            C.vv[C.me] = q;
+            const m = {
+              s: C.me,
+              l: C.l,
+              c: C.c,
+              q,
+              x: String(x).slice(0, 1000),
+            };
+            m.id = await mid(m);
+            add(m);
+            return m;
+          };
+          ops["crdt.merge"] = async (a, r) => {
+            const added = [],
+              rm = [];
+            let bad = 0;
+            for (const m of a || []) {
+              if (!valid(m)) {
+                bad++;
+                continue;
+              }
+              if (C.m.has(m.id)) continue;
+              if ((await mid(m)) !== m.id) {
+                bad++;
+                continue;
+              }
+              if (add(m)) added.push(m);
+            }
+            for (const t of r || [])
+              if (
+                t &&
+                /^[0-9a-f]{64}$/.test(t.id) &&
+                /^[0-9a-f]{8}$/.test(t.s) &&
+                doRm(t.id, t.s)
+              )
+                rm.push({ id: t.id, s: t.s });
+            return { added, rm, bad };
+          };
+          ops["crdt.rm"] = (id) => {
+            const m = C.m.get(id);
+            if (!m || m.s !== C.me) return null;
+            doRm(id, C.me);
+            return { id, s: C.me };
+          };
+          ops["crdt.sum"] = () => {
+            let h = 0;
+            for (const m of C.ord) h ^= parseInt(m.id.slice(0, 8), 16);
+            for (const k of C.rm.keys()) h ^= parseInt(k.slice(0, 8), 16);
+            return { h: h >>> 0, n: C.ord.length + C.rm.size, vv: C.vv };
+          };
+          ops["crdt.ids"] = () =>
+            C.ord
+              .map((m) => m.id.slice(0, 8))
+              .concat([...C.rm.keys()].map((k) => k.slice(0, 8)));
+          ops["crdt.get"] = (ids) => {
+            const q = new Set(ids);
+            return {
+              ms: C.ord.filter((m) => q.has(m.id.slice(0, 8))),
+              rm: [...C.rm]
+                .filter(([k]) => q.has(k.slice(0, 8)))
+                .map(([id, s]) => ({ id, s })),
+            };
+          };
+          ops["crdt.view"] = (off, cnt) => {
+            const n = C.ord.length,
+              end = Math.max(0, n - off);
+            return { total: n, ms: C.ord.slice(Math.max(0, end - cnt), end) };
+          };
+          /* ---- signal codec ---- */
+          const pipe = async (u, T) => {
+            const s = new T("deflate-raw"),
+              w = s.writable.getWriter();
+            w.write(u);
+            w.close();
+            return new Uint8Array(await new Response(s.readable).arrayBuffer());
+          };
+          ops["sg.pack"] = async (o) => {
+            const u = E.encode(JSON.stringify(o));
+            return typeof CompressionStream !== "undefined"
+              ? "Z" + b64(await pipe(u, CompressionStream))
+              : "P" + b64(u);
+          };
+          ops["sg.unpack"] = async (s) => {
+            s = s.trim();
+            const m = s.match(/(?:^|#)[oas]=([\w-]+)/);
+            if (m) s = m[1];
+            let u = unb64(s.slice(1));
+            if (s[0] === "Z") u = await pipe(u, DecompressionStream);
+            else if (s[0] !== "P") throw new Error("format");
+            return JSON.parse(D.decode(u));
+          };
+          /* ---- QR encode (v1-40, byte mode, ECC-L, mask 0) / decode (BarcodeDetector) ---- */
+          function qr(text) {
+            const data = E.encode(text),
+              L = [
+                7, 10, 15, 20, 26, 18, 20, 24, 30, 18, 20, 24, 26, 30, 22, 24,
+                28, 30, 28, 28, 28, 28, 30, 30, 26, 28, 30, 30, 30, 30, 30, 30,
+                30, 30, 30, 30, 30, 30, 30, 30,
+              ],
+              B = [
+                1, 1, 1, 1, 1, 2, 2, 2, 2, 4, 4, 4, 4, 4, 6, 6, 6, 6, 7, 8, 8,
+                9, 9, 10, 12, 12, 12, 13, 14, 15, 16, 17, 18, 19, 19, 20, 21,
+                22, 24, 25,
+              ];
+            const raw = (v) => {
+              let r = (16 * v + 128) * v + 64;
+              if (v >= 2) {
+                const a = ((v / 7) | 0) + 2;
+                r -= (25 * a - 10) * a - 55;
+                if (v >= 7) r -= 36;
+              }
+              return r;
+            };
+            let v = 1;
+            for (; ; v++) {
+              if (v > 40) throw new Error("Too large for QR");
+              if (
+                4 + (v < 10 ? 8 : 16) + data.length * 8 <=
+                ((raw(v) >> 3) - L[v - 1] * B[v - 1]) * 8
+              )
+                break;
+            }
+            const cap = (raw(v) >> 3) - L[v - 1] * B[v - 1],
+              bits = [],
+              put = (x, n) => {
+                for (let i = n - 1; i >= 0; i--) bits.push((x >>> i) & 1);
+              };
+            put(4, 4);
+            put(data.length, v < 10 ? 8 : 16);
+            data.forEach((b) => put(b, 8));
+            put(0, Math.min(4, cap * 8 - bits.length));
+            while (bits.length % 8) bits.push(0);
+            const cw = [];
+            for (let i = 0; i < bits.length; i += 8) {
+              let x = 0;
+              for (let j = 0; j < 8; j++) x = (x << 1) | bits[i + j];
+              cw.push(x);
+            }
+            for (let p = 0xec; cw.length < cap; p ^= 0xfd) cw.push(p);
+            const mul = (x, y) => {
+              let z = 0;
+              for (let i = 7; i >= 0; i--) {
+                z = (z << 1) ^ ((z >>> 7) * 0x11d);
+                z ^= ((y >>> i) & 1) * x;
+              }
+              return z;
+            };
+            const el = L[v - 1],
+              nb = B[v - 1],
+              rc = raw(v) >> 3,
+              ns = nb - (rc % nb),
+              sl = (rc / nb) | 0,
+              dv = Array(el).fill(0);
+            dv[el - 1] = 1;
+            let root = 1;
+            for (let i = 0; i < el; i++) {
+              for (let j = 0; j < el; j++) {
+                dv[j] = mul(dv[j], root);
+                if (j + 1 < el) dv[j] ^= dv[j + 1];
+              }
+              root = mul(root, 2);
+            }
+            const rem = (d) => {
+              const r = Array(el).fill(0);
+              for (const b of d) {
+                const f = b ^ r.shift();
+                r.push(0);
+                dv.forEach((c, i) => {
+                  r[i] ^= mul(c, f);
+                });
+              }
+              return r;
+            };
+            const blks = [];
+            for (let i = 0, k = 0; i < nb; i++) {
+              const d = cw.slice(k, k + sl - el + (i < ns ? 0 : 1));
+              k += d.length;
+              const e = rem(d);
+              if (i < ns) d.push(0);
+              blks.push(d.concat(e));
+            }
+            const all = [];
+            for (let i = 0; i < blks[0].length; i++)
+              blks.forEach((b, j) => {
+                if (i !== sl - el || j >= ns) all.push(b[i]);
+              });
+            const n = v * 4 + 17,
+              M = [],
+              F = [];
+            for (let i = 0; i < n; i++) {
+              M.push(Array(n).fill(false));
+              F.push(Array(n).fill(false));
+            }
+            const sf = (x, y, d) => {
+              if (x >= 0 && y >= 0 && x < n && y < n) {
+                M[y][x] = d;
+                F[y][x] = true;
+              }
+            };
+            for (let i = 0; i < n; i++) {
+              sf(6, i, i % 2 == 0);
+              sf(i, 6, i % 2 == 0);
+            }
+            const fd = (cx, cy) => {
+              for (let dy = -4; dy <= 4; dy++)
+                for (let dx = -4; dx <= 4; dx++) {
+                  const d = Math.max(Math.abs(dx), Math.abs(dy));
+                  sf(cx + dx, cy + dy, d != 2 && d != 4);
+                }
+            };
+            fd(3, 3);
+            fd(n - 4, 3);
+            fd(3, n - 4);
+            let ap = [];
+            if (v > 1) {
+              const na = ((v / 7) | 0) + 2,
+                st = v == 32 ? 26 : Math.ceil((v * 4 + 4) / (na * 2 - 2)) * 2;
+              ap = [6];
+              for (let p = n - 7; ap.length < na; p -= st) ap.splice(1, 0, p);
+            }
+            ap.forEach((a, i) =>
+              ap.forEach((b, j) => {
+                if (
+                  (i == 0 && j == 0) ||
+                  (i == 0 && j == ap.length - 1) ||
+                  (i == ap.length - 1 && j == 0)
+                )
+                  return;
+                for (let dy = -2; dy <= 2; dy++)
+                  for (let dx = -2; dx <= 2; dx++)
+                    sf(
+                      a + dx,
+                      b + dy,
+                      Math.max(Math.abs(dx), Math.abs(dy)) != 1,
+                    );
+              }),
+            );
+            let r = 8;
+            for (let i = 0; i < 10; i++) r = (r << 1) ^ ((r >>> 9) * 0x537);
+            const fb = ((8 << 10) | r) ^ 0x5412,
+              g = (i) => ((fb >>> i) & 1) == 1;
+            for (let i = 0; i <= 5; i++) sf(8, i, g(i));
+            sf(8, 7, g(6));
+            sf(8, 8, g(7));
+            sf(7, 8, g(8));
+            for (let i = 9; i < 15; i++) sf(14 - i, 8, g(i));
+            for (let i = 0; i < 8; i++) sf(n - 1 - i, 8, g(i));
+            for (let i = 8; i < 15; i++) sf(8, n - 15 + i, g(i));
+            sf(8, n - 8, true);
+            if (v >= 7) {
+              let q = v;
+              for (let i = 0; i < 12; i++) q = (q << 1) ^ ((q >>> 11) * 0x1f25);
+              const vb = (v << 12) | q;
+              for (let i = 0; i < 18; i++) {
+                const c = ((vb >>> i) & 1) == 1,
+                  a = n - 11 + (i % 3),
+                  b = (i / 3) | 0;
+                sf(a, b, c);
+                sf(b, a, c);
+              }
+            }
+            let i = 0;
+            for (let rt = n - 1; rt >= 1; rt -= 2) {
+              if (rt == 6) rt = 5;
+              for (let vt = 0; vt < n; vt++)
+                for (let j = 0; j < 2; j++) {
+                  const x = rt - j,
+                    y = ((rt + 1) & 2) == 0 ? n - 1 - vt : vt;
+                  if (!F[y][x] && i < all.length * 8) {
+                    M[y][x] = ((all[i >> 3] >>> (7 - (i & 7))) & 1) == 1;
+                    i++;
+                  }
+                }
+            }
+            const d = new Uint8Array(n * n);
+            for (let y = 0; y < n; y++)
+              for (let x = 0; x < n; x++) {
+                if (!F[y][x] && (x + y) % 2 == 0) M[y][x] = !M[y][x];
+                d[y * n + x] = M[y][x] ? 1 : 0;
+              }
+            return { n, d };
+          }
+          ops["qr.gen"] = (t) => qr(t);
+          let det = null;
+          ops["qr.dec"] = async (bmp) => {
+            if (!("BarcodeDetector" in self)) {
+              bmp.close();
+              throw new Error("nodet");
+            }
+            det = det || new BarcodeDetector({ formats: ["qr_code"] });
+            const r = await det.detect(bmp);
+            bmp.close();
+            return r.length ? r[0].rawValue : null;
+          };
+          /* ---- graph layout: force-directed simulation, posts unit-space positions until settled ---- */
+          const LY = {
+            ids: [],
+            x: new Float32Array(0),
+            y: new Float32Array(0),
+            vx: new Float32Array(0),
+            vy: new Float32Array(0),
+            ed: [],
+            me: -1,
+            iv: 0,
+          };
+          ops["lay.set"] = (ids, ed, me) => {
+            const old = new Map(
+                LY.ids.map((id, i) => [id, [LY.x[i], LY.y[i]]]),
+              ),
+              n = ids.length;
+            LY.x = new Float32Array(n);
+            LY.y = new Float32Array(n);
+            LY.vx = new Float32Array(n);
+            LY.vy = new Float32Array(n);
+            ids.forEach((id, i) => {
+              const p = old.get(id);
+              LY.x[i] = p ? p[0] : (Math.random() - 0.5) * 0.8;
+              LY.y[i] = p ? p[1] : (Math.random() - 0.5) * 0.8;
+            });
+            LY.ids = ids;
+            LY.ed = ed;
+            LY.me = ids.indexOf(me);
+            if (!LY.iv) LY.iv = setInterval(step, 33);
+            return 1;
+          };
+          function step() {
+            const { x, y, vx, vy, ed } = LY,
+              n = x.length;
+            let en = 0;
+            for (let k = 0; k < 3; k++) {
+              const fx = new Float32Array(n),
+                fy = new Float32Array(n);
+              for (let i = 0; i < n; i++)
+                for (let j = i + 1; j < n; j++) {
+                  const dx = x[i] - x[j],
+                    dy = y[i] - y[j],
+                    d2 = dx * dx + dy * dy + 0.01,
+                    f = 0.006 / d2;
+                  fx[i] += dx * f;
+                  fy[i] += dy * f;
+                  fx[j] -= dx * f;
+                  fy[j] -= dy * f;
+                }
+              for (const [a, b] of ed) {
+                const dx = x[b] - x[a],
+                  dy = y[b] - y[a],
+                  d = Math.sqrt(dx * dx + dy * dy) + 1e-4,
+                  f = ((d - 0.55) * 0.06) / d;
+                fx[a] += dx * f;
+                fy[a] += dy * f;
+                fx[b] -= dx * f;
+                fy[b] -= dy * f;
+              }
+              for (let i = 0; i < n; i++) {
+                vx[i] = (vx[i] + fx[i] - x[i] * 0.03) * 0.8;
+                vy[i] = (vy[i] + fy[i] - y[i] * 0.03) * 0.8;
+                x[i] = Math.max(-1, Math.min(1, x[i] + vx[i]));
+                y[i] = Math.max(-1, Math.min(1, y[i] + vy[i]));
+                en += vx[i] * vx[i] + vy[i] * vy[i];
+              }
+              if (LY.me >= 0) {
+                x[LY.me] = 0;
+                y[LY.me] = 0;
+              }
+            }
+            const xy = new Float32Array(n * 2);
+            for (let i = 0; i < n; i++) {
+              xy[2 * i] = x[i];
+              xy[2 * i + 1] = y[i];
+            }
+            postMessage({ t: "pos", ids: LY.ids, xy }, [xy.buffer]);
+            if (en < 1e-6) {
+              clearInterval(LY.iv);
+              LY.iv = 0;
+            }
+          }
+          onmessage = async (e) => {
+            const { i, o, a } = e.data;
+            try {
+              const r = await ops[o](...a);
+              postMessage(
+                { i, r },
+                r && r.d instanceof Uint8Array ? [r.d.buffer] : [],
+              );
+            } catch (x) {
+              postMessage({ i, e: String((x && x.message) || x) });
+            }
+          };
+        }
+
+        const W = (() => {
+          let w = null,
+            seq = 0,
+            onpos = () => {};
+          const pend = new Map();
+          try {
+            w = new Worker(
+              URL.createObjectURL(
+                new Blob(["(" + workerMain.toString() + ")()"], {
+                  type: "text/javascript",
+                }),
+              ),
+            );
+            w.onmessage = (e) => {
+              const d = e.data;
+              if (d.t === "pos") {
+                onpos(d);
+                return;
+              }
+              const p = pend.get(d.i);
+              if (!p) return;
+              pend.delete(d.i);
+              if (d.e) p[1](new Error(d.e));
+              else p[0](d.r);
+            };
+            w.onerror = (e) => UI.toast("Worker error: " + e.message, "err");
+          } catch (e) {
+            w = null;
+          }
+          return {
+            call: (o, a = [], tr = []) =>
+              new Promise((res, rej) => {
+                if (!w) return rej(new Error("Web Workers unavailable"));
+                const i = ++seq;
+                pend.set(i, [res, rej]);
+                w.postMessage({ i, o, a }, tr);
+              }),
+            set onpos(f) {
+              onpos = f;
+            },
+            ok: !!w,
+            kill: () => w && w.terminate(),
+          };
+        })();
+
+        /* ===================== rtc-core.js ===================== */
+        const Rtc = (() => {
+          const cfg = {
+            iceServers: [
+              {
+                urls: [
+                  "stun:stun.l.google.com:19302",
+                  "stun:stun1.l.google.com:19302",
+                  "stun:global.stun.twilio.com:3478",
+                ],
+              },
+            ],
+          };
+          function create(h) {
+            const l = {
+              id: null,
+              want: null,
+              key: rid(),
+              sid: rid() + rid(),
+              init: false,
+              manual: false,
+              h,
+              pc: new RTCPeerConnection(cfg),
+              dc: null,
+              buf: [],
+              ft: 0,
+              to: 0,
+              wd: 0,
+              st: "connecting",
+              last: now(),
+              born: now(),
+              dead: false,
+              rtt: null,
+              stab: 1,
+              tot: 0,
+              lost: 0,
+              loss: 0,
+              wait: false,
+              sec: false,
+              bad: 0,
+              score: 60,
+              rx: Promise.resolve(),
+              tx: Promise.resolve(),
+            };
+            l.pc.oniceconnectionstatechange = () => {
+              if (l.dead) return;
+              const s = l.pc.iceConnectionState;
+              if (s === "failed" || s === "closed") h.onclose(l, "ICE " + s);
+              else if (s === "disconnected") {
+                l.st = "unstable";
+                h.onstate();
+              } else if (
+                (s === "connected" || s === "completed") &&
+                l.st === "unstable"
+              ) {
+                l.st = "open";
+                h.onstate();
+              }
+            };
+            l.pc.ondatachannel = (e) => attach(l, e.channel);
+            return l;
+          }
+          function attach(l, dc) {
+            l.dc = dc;
+            dc.onopen = () => {
+              l.st = "open";
+              l.h.onopen(l);
+            };
+            dc.onclose = () => l.h.onclose(l, "channel closed");
+            dc.onerror = () => {};
+            dc.onmessage = (e) => {
+              const d = e.data;
+              l.rx = l.rx.then(() => l.h.onraw(l, d)).catch(() => {});
+            };
+          }
+          function raw(l, s) {
+            if (!l.dead && l.dc && l.dc.readyState === "open")
+              try {
+                l.dc.send(s);
+              } catch (e) {}
+          }
+          function send(l, p) {
+            if (l.dead || !l.sec) return;
+            l.buf.push(p);
+            if (!l.ft) l.ft = setTimeout(() => flush(l), 30);
+          }
+          function flush(l) {
+            l.ft = 0;
+            const b = l.buf.splice(0);
+            while (b.length) {
+              const c = [];
+              let n = 0;
+              while (b.length && n < 9000) {
+                const p = b.shift();
+                c.push(p);
+                n += JSON.stringify(p).length;
+              }
+              const s = JSON.stringify(c);
+              l.tx = l.tx
+                .then(async () => {
+                  if (!l.dead) raw(l, await W.call("cx.enc", [l.sid, s]));
+                })
+                .catch(() => {});
+            }
+          }
+          const gather = (pc) =>
+            new Promise((r) => {
+              if (pc.iceGatheringState === "complete") return r();
+              let t;
+              const f = () => {
+                if (pc.iceGatheringState === "complete") {
+                  pc.removeEventListener("icegatheringstatechange", f);
+                  clearTimeout(t);
+                  r();
+                }
+              };
+              t = setTimeout(() => {
+                pc.removeEventListener("icegatheringstatechange", f);
+                r();
+              }, 4000);
+              pc.addEventListener("icegatheringstatechange", f);
+            });
+          async function offer(l) {
+            attach(l, l.pc.createDataChannel("c"));
+            await l.pc.setLocalDescription(await l.pc.createOffer());
+            await gather(l.pc);
+            return l.pc.localDescription.sdp;
+          }
+          async function answer(l, sdp) {
+            await l.pc.setRemoteDescription({ type: "offer", sdp });
+            await l.pc.setLocalDescription(await l.pc.createAnswer());
+            await gather(l.pc);
+            return l.pc.localDescription.sdp;
+          }
+          const accept = (l, sdp) =>
+            l.pc.setRemoteDescription({ type: "answer", sdp });
+          function close(l) {
+            if (l.dead) return;
+            l.dead = true;
+            clearTimeout(l.ft);
+            clearTimeout(l.to);
+            clearTimeout(l.wd);
+            const d = l.dc;
+            if (d) {
+              d.onopen = d.onclose = d.onmessage = d.onerror = null;
+              try {
+                d.close();
+              } catch (e) {}
+            }
+            const p = l.pc;
+            p.oniceconnectionstatechange = p.ondatachannel = null;
+            try {
+              p.close();
+            } catch (e) {}
+            l.buf.length = 0;
+            W.call("cx.drop", [l.sid]).catch(() => {});
+          }
+          return { create, send, raw, offer, answer, accept, close };
+        })();
+
+        /* ===================== broker.js — 6-digit-code rendezvous: minimal MQTT-over-WSS on public brokers (signaling only) ===================== */
+        const Broker = (() => {
+          const URLS = [
+              "wss://broker.hivemq.com:8884/mqtt",
+              "wss://broker.emqx.io:8084/mqtt",
+              "wss://test.mosquitto.org:8081",
+            ],
+            E = new TextEncoder(),
+            D = new TextDecoder();
+          let ws = null,
+            ui = 0,
+            base = "",
+            mid = "",
+            cb = null,
+            st = null,
+            pt = 0,
+            rc = 0,
+            want = false,
+            ok = false,
+            buf = new Uint8Array(0);
+          const s2 = (s) => {
+            const b = E.encode(s);
+            return [b.length >> 8, b.length & 255, ...b];
+          };
+          const rl = (n) => {
+            const o = [];
+            do {
+              let d = n % 128;
+              n = n >> 7;
+              if (n) d |= 128;
+              o.push(d);
+            } while (n);
+            return o;
+          };
+          const pk = (h, b) => Uint8Array.from([h, ...rl(b.length), ...b]);
+          function connect() {
+            clearTimeout(rc);
+            st("connecting");
+            buf = new Uint8Array(0);
+            let w;
+            try {
+              w = new WebSocket(URLS[ui % URLS.length], "mqtt");
+            } catch (e) {
+              ui++;
+              rc = setTimeout(connect, 1500);
+              return;
+            }
+            ws = w;
+            w.binaryType = "arraybuffer";
+            w.onopen = () =>
+              w.send(
+                pk(0x10, [
+                  0,
+                  4,
+                  77,
+                  81,
+                  84,
+                  84,
+                  4,
+                  2,
+                  0,
+                  60,
+                  ...s2("mc" + mid + Math.random().toString(16).slice(2, 6)),
+                ]),
+              );
+            w.onmessage = (e) => parse(new Uint8Array(e.data));
+            w.onclose = w.onerror = () => {
+              if (w !== ws) return;
+              ws = null;
+              ok = false;
+              clearInterval(pt);
+              if (want) {
+                st("down");
+                ui++;
+                rc = setTimeout(connect, 1500);
+              }
+            };
+          }
+          function parse(u) {
+            const c = new Uint8Array(buf.length + u.length);
+            c.set(buf);
+            c.set(u, buf.length);
+            buf = c;
+            while (buf.length > 1) {
+              let i = 1,
+                m = 1,
+                n = 0,
+                b;
+              do {
+                if (i >= buf.length) return;
+                b = buf[i++];
+                n += (b & 127) * m;
+                m *= 128;
+              } while (b & 128);
+              if (buf.length < i + n) return;
+              const t = buf[0] >> 4,
+                body = buf.slice(i, i + n);
+              buf = buf.slice(i + n);
+              if (t === 2) {
+                ws.send(
+                  pk(0x82, [
+                    0,
+                    1,
+                    ...s2(base + "/" + mid),
+                    0,
+                    ...s2(base + "/all"),
+                    0,
+                  ]),
+                );
+                ok = true;
+                clearInterval(pt);
+                pt = setInterval(
+                  () =>
+                    ws &&
+                    ws.readyState === 1 &&
+                    ws.send(Uint8Array.of(0xc0, 0)),
+                  30000,
+                );
+                st("up");
+              } else if (t === 3) {
+                const tl = (body[0] << 8) | body[1];
+                try {
+                  cb(
+                    D.decode(body.subarray(2, 2 + tl)),
+                    D.decode(body.subarray(2 + tl)),
+                  );
+                } catch (e) {}
+              }
+            }
+          }
+          const pub = (sub, o) => {
+            if (ok && ws && ws.readyState === 1)
+              ws.send(pk(0x30, [...s2(base + "/" + sub), ...E.encode(o)]));
+          };
+          function close() {
+            want = false;
+            ok = false;
+            clearTimeout(rc);
+            clearInterval(pt);
+            const w = ws;
+            ws = null;
+            if (w) {
+              w.onclose = w.onerror = w.onmessage = null;
+              try {
+                w.close();
+              } catch (e) {}
+            }
+          }
+          function open(b, me, c, s) {
+            close();
+            base = b;
+            mid = me;
+            cb = c;
+            st = s;
+            want = true;
+            ui = 0;
+            connect();
+          }
+          return {
+            open,
+            close,
+            pub,
+            get ready() {
+              return ok;
+            },
+          };
+        })();
+
+        /* ===================== mesh.js — adaptive topology, peer scoring, routing ===================== */
+        const Mesh = (() => {
+          const me = rid(),
+            ID = /^[0-9a-f]{8}$/,
+            on = {};
+          let room = "",
+            pass = "",
+            off = false,
+            mode = "full",
+            hub = null,
+            hbT = 0,
+            bn = 0;
+          const links = new Map(),
+            pend = new Map(),
+            dial = new Map(),
+            adj = new Map(),
+            fails = new Map(),
+            known = new Map(),
+            retry = new Map(),
+            flaps = new Map(),
+            nudge = new Map(),
+            pruned = new Map(),
+            warns = [],
+            fs = [],
+            sgs = new Map();
+          const warn = (m) => {
+            warns.unshift({ t: now(), m });
+            warns.length = Math.min(warns.length, 5);
+            on.toast(m, "warn");
+          };
+          const cap = () =>
+            mode === "full" ? 9 : mode === "partial" ? 4 : hub === me ? 9 : 1;
+          function topo() {
+            const n = now();
+            while (fs.length && n - fs[0] > 60000) fs.shift();
+            const N = Math.max(known.size, links.size) + 1,
+              m =
+                N > 10 || fs.length >= 4 ? "star" : N > 6 ? "partial" : "full";
+            const alive = [
+              me,
+              ...[...known].filter(([i, t]) => n - t < 60000).map((x) => x[0]),
+            ].sort();
+            hub = m === "star" ? alive[0] : null;
+            if (m !== mode) {
+              mode = m;
+              on.toast(
+                "Topology → " + m + (hub ? " (hub " + hub + ")" : ""),
+                "info",
+              );
+            }
+          }
+          const H = {
+            onopen: async (l) => {
+              try {
+                const pub = await W.call("cx.hs", [l.sid]);
+                Rtc.raw(l, JSON.stringify({ k: "hs", id: me, r: room, pub }));
+              } catch (e) {
+                warn("Key generation failed: " + e.message);
+                kill(l);
+              }
+            },
+            onraw: (l, s) => onraw(l, s),
+            onstate: () => on.change(),
+            onclose: (l, w) => drop(l, w),
+          };
+          function kill(l) {
+            Rtc.close(l);
+            if (l.id && links.get(l.id) === l) links.delete(l.id);
+            if (l.want && dial.get(l.want) === l) dial.delete(l.want);
+            pend.delete(l.key);
+          }
+          const expire = (l, ms) => {
+            l.to = setTimeout(() => {
+              if (!l.sec) {
+                if (l.want) fail(l.want);
+                kill(l);
+                on.change();
+              }
+            }, ms);
+          };
+          function fail(id) {
+            const f = fails.get(id) || { n: 0, t: 0 };
+            f.n++;
+            f.t = now() + 5000 * f.n;
+            fails.set(id, f);
+            fs.push(now());
+            warn(
+              f.n >= 3
+                ? "Cannot reach " +
+                    id +
+                    ": NAT/ICE failure (symmetric NAT or CGNAT likely; no TURN relay). Messages still route via other peers if any path exists."
+                : "Dial to " + id + " failed, retrying…",
+            );
+          }
+          function drop(l, why) {
+            if (l.dead) return;
+            const id = l.id;
+            kill(l);
+            if (id) {
+              adj.delete(id);
+              flaps.set(id, (flaps.get(id) || 0) + 1);
+              retry.set(id, { n: 0, at: now() + 3000, pr: l.score });
+              warn("Peer " + id + " lost (" + why + "). Recovery queued.");
+            } else if (l.want) fail(l.want);
+            else {
+              if (/ICE failed/.test(why)) {
+                fs.push(now());
+                warn(
+                  "NAT/ICE failure while pairing: try another network/hotspot; switching signaling route.",
+                );
+              }
+              if (l.manual) on.pairfail();
+            }
+            on.change();
+          }
+          function reach(id) {
+            fails.delete(id);
+            if (me < id) consider(id);
+            else if (!nudge.has(id) || now() - nudge.get(id) > 20000) {
+              nudge.set(id, now());
+              sgSend({ k: "sg", i: rid(), to: id, f: me, d: "n", ttl: 6 });
+            }
+          }
+          function consider(id) {
+            if (
+              id === me ||
+              !ID.test(id) ||
+              links.has(id) ||
+              dial.has(id) ||
+              links.size + dial.size >= cap()
+            )
+              return;
+            if (mode === "star" && hub !== me && id !== hub) return;
+            if ((pruned.get(id) || 0) > now()) return;
+            const f = fails.get(id);
+            if (f && (f.n >= 3 || now() < f.t)) return;
+            if (me < id) dialTo(id);
+            else if (mode === "star" && id === hub) reach(id);
+          }
+          async function dialTo(id) {
+            const l = Rtc.create(H);
+            l.init = true;
+            l.want = id;
+            dial.set(id, l);
+            expire(l, 25000);
+            try {
+              const sdp = await Rtc.offer(l);
+              if (!l.dead)
+                sgSend({
+                  k: "sg",
+                  i: rid(),
+                  to: id,
+                  f: me,
+                  d: "o",
+                  sdp,
+                  key: l.key,
+                  ttl: 6,
+                });
+            } catch (e) {
+              fail(id);
+              kill(l);
+            }
+          }
+          let fillT = 0;
+          const fillSoon = () => {
+            if (!fillT)
+              fillT = setTimeout(() => {
+                fillT = 0;
+                fill();
+              }, 300);
+          };
+          function fill() {
+            topo();
+            if (off || links.size + dial.size >= cap()) return;
+            const ids = [...known.keys()]
+              .filter((i) => !links.has(i))
+              .sort(() => Math.random() - 0.5);
+            for (const i of ids) consider(i);
+          }
+          function nextHop(to) {
+            const prev = new Map([[me, null]]),
+              q = [me];
+            while (q.length) {
+              const a = q.shift(),
+                nb =
+                  a === me
+                    ? [...links.keys()]
+                    : [...((adj.get(a) || {}).n || [])];
+              for (const b of nb)
+                if (!prev.has(b)) {
+                  prev.set(b, a);
+                  if (b === to) {
+                    let x = b;
+                    while (prev.get(x) !== me) x = prev.get(x);
+                    return x;
+                  }
+                  q.push(b);
+                }
+            }
+            return null;
+          }
+          function sgSeen(i) {
+            if (sgs.has(i)) return false;
+            sgs.set(i, 1);
+            if (sgs.size > 800) sgs.delete(sgs.keys().next().value);
+            return true;
+          }
+          function sgSend(p) {
+            sgSeen(p.i);
+            const t = links.get(nextHop(p.to));
+            if (t) Rtc.send(t, p);
+            else if (Broker.ready) bpub(p.to, p);
+            else links.forEach((x) => Rtc.send(x, p));
+          }
+          function routeSg(p, from) {
+            if (typeof p.i !== "string" || p.i.length > 32 || !sgSeen(p.i))
+              return;
+            if (p.to !== me) {
+              if (--p.ttl > 0) {
+                const t = links.get(nextHop(p.to));
+                if (t && t !== from) Rtc.send(t, p);
+                else
+                  links.forEach((x) => {
+                    if (x !== from) Rtc.send(x, p);
+                  });
+              }
+              return;
+            }
+            handleSg(p);
+          }
+          async function handleSg(p) {
+            if (!ID.test(p.f)) return;
+            if (p.d === "n") {
+              fails.delete(p.f);
+              consider(p.f);
+            } else if (p.d === "o") {
+              if (
+                links.has(p.f) ||
+                dial.has(p.f) ||
+                links.size + pend.size >= 18 ||
+                typeof p.sdp !== "string"
+              )
+                return;
+              const a = Rtc.create(H);
+              a.key = String(p.key).slice(0, 16);
+              pend.set(a.key, a);
+              expire(a, 25000);
+              try {
+                const sdp = await Rtc.answer(a, p.sdp);
+                if (!a.dead)
+                  sgSend({
+                    k: "sg",
+                    i: rid(),
+                    to: p.f,
+                    f: me,
+                    d: "a",
+                    sdp,
+                    key: a.key,
+                    ttl: 6,
+                  });
+              } catch (e) {
+                kill(a);
+              }
+            } else if (p.d === "a") {
+              const d = dial.get(p.f);
+              if (d && d.key === p.key)
+                Rtc.accept(d, p.sdp).catch(() => {
+                  fail(p.f);
+                  kill(d);
+                });
+            }
+          }
+          async function hello(l, p) {
+            if (l.sec || !ID.test(p.id) || p.id === me) {
+              kill(l);
+              return;
+            }
+            if (p.r && room && p.r !== room) {
+              warn("Peer " + p.id + " is in a different room — refused");
+              kill(l);
+              return;
+            }
+            if (!room && p.r) room = String(p.r);
+            try {
+              await W.call("cx.up", [l.sid, p.pub, l.init, pass + "|" + room]);
+            } catch (e) {
+              warn("Key exchange with " + p.id + " failed: " + e.message);
+              kill(l);
+              return;
+            }
+            if (l.dead) return;
+            const old = links.get(p.id);
+            if (old && old !== l) {
+              old.id = null;
+              Rtc.close(old);
+            }
+            if (links.size >= 9 && !old) {
+              kill(l);
+              warn(
+                "Mesh saturated (9 links): peer " +
+                  p.id +
+                  " will use gossip routes",
+              );
+              return;
+            }
+            l.id = p.id;
+            l.sec = true;
+            l.st = "open";
+            l.last = now();
+            links.set(p.id, l);
+            pend.delete(l.key);
+            dial.delete(p.id);
+            fails.delete(p.id);
+            retry.delete(p.id);
+            known.set(p.id, now());
+            clearTimeout(l.to);
+            clearTimeout(l.wd);
+            topo();
+            on.linked(p.id);
+            Gossip.hi(l);
+            on.change();
+          }
+          async function onraw(l, s) {
+            if (s[0] === "{") {
+              let p;
+              try {
+                p = JSON.parse(s);
+              } catch (e) {
+                return;
+              }
+              if (p && p.k === "hs" && typeof p.pub === "string")
+                await hello(l, p);
+              return;
+            }
+            if (!l.sec) return;
+            let a;
+            try {
+              a = JSON.parse(await W.call("cx.dec", [l.sid, s]));
+              l.bad = 0;
+            } catch (e) {
+              if (++l.bad >= 3) {
+                warn(
+                  "Encryption mismatch with " +
+                    l.id +
+                    " (different passphrase or tampering) — link closed",
+                );
+                kill(l);
+                on.change();
+              } else
+                warn(
+                  "Undecryptable packet from " +
+                    l.id +
+                    " (passphrase mismatch?)",
+                );
+              return;
+            }
+            l.last = now();
+            for (const p of a) pkt(l, p);
+          }
+          function pkt(l, p) {
+            if (!p || typeof p !== "object") return;
+            switch (p.k) {
+              case "p":
+                Rtc.send(l, { k: "q", t: p.t });
+                break;
+              case "q":
+                l.wait = false;
+                {
+                  const r = now() - p.t;
+                  l.rtt = l.rtt == null ? r : l.rtt * 0.7 + r * 0.3;
+                }
+                break;
+              case "by":
+                pruned.set(l.id, now() + 90000);
+                kill(l);
+                on.change();
+                break;
+              case "sg":
+                routeSg(p, l);
+                break;
+              default:
+                Gossip.handle(l, p);
+            }
+          }
+          function learn(v) {
+            if (!Array.isArray(v)) return;
+            for (const e of v.slice(0, 8)) {
+              if (!Array.isArray(e) || !ID.test(e[0]) || !Array.isArray(e[1]))
+                continue;
+              const nb = e[1].filter((x) => ID.test(x)).slice(0, 12);
+              if (e[0] !== me) {
+                adj.set(e[0], { n: new Set(nb), t: now() });
+                known.set(e[0], now());
+              }
+              nb.forEach((x) => {
+                if (x !== me) known.set(x, now());
+              });
+            }
+            fillSoon();
+          }
+          function view() {
+            const own = [me, [...links.keys()]],
+              rest = [...adj]
+                .sort(() => Math.random() - 0.5)
+                .slice(0, 4)
+                .map(([k, v]) => [k, [...v.n]]);
+            return [own, ...rest];
+          }
+          function prune() {
+            const c = cap();
+            if (links.size <= c) return;
+            const arr = [...links.values()]
+              .filter(
+                (l) =>
+                  now() - l.born > 15000 && !(mode === "star" && l.id === hub),
+              )
+              .sort((a, b) => a.score - b.score);
+            while (links.size > c && arr.length) {
+              const l = arr.shift();
+              on.toast(
+                "Pruned low-score link " + l.id + " (score " + l.score + ")",
+                "info",
+              );
+              Rtc.send(l, { k: "by" });
+              setTimeout(() => {
+                kill(l);
+                on.change();
+              }, 300);
+              links.delete(l.id);
+            }
+          }
+          function beat() {
+            if (off) return;
+            const n = now();
+            bn++;
+            links.forEach((l) => {
+              const dt = n - l.last;
+              if (dt > 20000) {
+                drop(l, "timeout");
+                return;
+              }
+              if (dt > 9000 && l.st === "open") l.st = "unstable";
+              else if (
+                dt <= 9000 &&
+                l.st === "unstable" &&
+                l.pc.iceConnectionState !== "disconnected"
+              )
+                l.st = "open";
+              l.stab = l.stab * 0.9 + (l.st === "open" ? 1 : 0) * 0.1;
+              if (l.wait) l.lost++;
+              l.tot++;
+              l.wait = true;
+              if (l.tot > 40) {
+                l.tot /= 2;
+                l.lost /= 2;
+              }
+              l.loss = l.tot > 3 ? l.lost / l.tot : 0;
+              l.score = Math.max(
+                0,
+                Math.min(
+                  100,
+                  Math.round(
+                    100 * l.stab -
+                      Math.min(35, (l.rtt || 0) / 10) -
+                      l.loss * 70 -
+                      Math.min(20, (flaps.get(l.id) || 0) * 5),
+                  ),
+                ),
+              );
+              Rtc.send(l, { k: "p", t: n });
+            });
+            adj.forEach((v, k) => {
+              if (n - v.t > 40000) adj.delete(k);
+            });
+            known.forEach((t, k) => {
+              if (n - t > 120000 && !links.has(k)) known.delete(k);
+            });
+            pruned.forEach((t, k) => {
+              if (t < n) pruned.delete(k);
+            });
+            topo();
+            if (bn % 7 === 0 && Broker.ready && links.size < cap())
+              bpub("all", { k: "hi", f: me });
+            if (bn % 5 === 0) {
+              prune();
+              flaps.forEach((v, k) => {
+                if (v * 0.7 < 0.2) flaps.delete(k);
+                else flaps.set(k, v * 0.7);
+              });
+              [...retry]
+                .filter(([, r]) => r.at <= n)
+                .sort((a, b) => b[1].pr - a[1].pr)
+                .slice(0, 2)
+                .forEach(([id, r]) => {
+                  r.n++;
+                  r.at = n + Math.min(60000, 3000 * 2 ** r.n);
+                  if (r.n > 6) retry.delete(id);
+                  else reach(id);
+                });
+              fill();
+            }
+            on.change();
+          }
+          function graph() {
+            const n = now(),
+              nodes = [{ id: me, st: "self" }],
+              ix = new Set([me]),
+              edges = [],
+              ek = new Set(),
+              add = (id, st, d, rtt) => {
+                if (!ix.has(id)) {
+                  ix.add(id);
+                  nodes.push({ id, st, direct: d, rtt });
+                }
+              };
+            links.forEach((l) => {
+              add(l.id, l.st, true, l.rtt);
+              edges.push([me, l.id]);
+            });
+            adj.forEach((v, k) => {
+              if (n - v.t < 40000) {
+                add(k, "via", false);
+                v.n.forEach((x) => {
+                  add(x, "via", false);
+                  const e = [k, x].sort().join();
+                  if (x !== me && !ek.has(e)) {
+                    ek.add(e);
+                    edges.push([k, x]);
+                  }
+                });
+              }
+            });
+            known.forEach((t, id) => add(id, "gone", false));
+            return { me, nodes, edges };
+          }
+          function diag() {
+            const g = graph(),
+              N = g.nodes.length;
+            return {
+              mode,
+              hub,
+              N,
+              density: N > 1 ? g.edges.length / ((N * (N - 1)) / 2) : 0,
+              warns,
+              peers: [...links.values()].map((l) => ({
+                id: l.id,
+                st: l.st,
+                rtt: l.rtt,
+                stab: l.stab,
+                loss: l.loss,
+                score: l.score,
+              })),
+            };
+          }
+          async function host() {
+            const l = Rtc.create(H);
+            l.init = l.manual = true;
+            if (!room) room = rid();
+            pend.set(l.key, l);
+            expire(l, 300000);
+            const sdp = await Rtc.offer(l);
+            return { t: "o", k: l.key, r: room, f: me, sdp };
+          }
+          async function join(o) {
+            if (!/^[0-9a-f]{8}$/.test(o.r) || typeof o.k !== "string")
+              throw new Error("Malformed offer");
+            room = o.r;
+            const l = Rtc.create(H);
+            l.manual = true;
+            l.key = o.k.slice(0, 16);
+            pend.set(l.key, l);
+            expire(l, 300000);
+            const sdp = await Rtc.answer(l, o.sdp);
+            return { t: "a", k: o.k, f: me, sdp };
+          }
+          async function accept(a) {
+            const l = pend.get(a.k);
+            if (!l || l.dead || !l.init)
+              throw new Error(
+                "No matching pending offer (expired?) — press “Host / add peer” again",
+              );
+            await Rtc.accept(l, a.sdp);
+            l.wd = setTimeout(() => {
+              if (!l.sec && !l.dead) on.pairfail();
+            }, 45000);
+          }
+          function reconnectAll() {
+            known.forEach((t, id) => {
+              if (!links.has(id)) reach(id);
+            });
+            links.forEach((l) => {
+              if (l.st === "unstable") drop(l, "manual reset");
+            });
+            return links.size;
+          }
+          let bk = null;
+          async function bpub(sub, o) {
+            if (!bk || !Broker.ready) return;
+            const iv = crypto.getRandomValues(new Uint8Array(12)),
+              ct = new Uint8Array(
+                await crypto.subtle.encrypt(
+                  { name: "AES-GCM", iv },
+                  bk,
+                  new TextEncoder().encode(JSON.stringify(o)),
+                ),
+              ),
+              u = new Uint8Array(12 + ct.length);
+            u.set(iv);
+            u.set(ct, 12);
+            Broker.pub(sub, btoa(String.fromCharCode(...u)));
+          }
+          async function bdec(s) {
+            const u = Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+            return JSON.parse(
+              new TextDecoder().decode(
+                await crypto.subtle.decrypt(
+                  { name: "AES-GCM", iv: u.subarray(0, 12) },
+                  bk,
+                  u.subarray(12),
+                ),
+              ),
+            );
+          }
+          /* Secret room: 100-bit random code. Broker sees only hash(topic) + AES-GCM ciphertext keyed from the code. */
+          async function quick(code) {
+            const te = new TextEncoder(),
+              sh = async (s) =>
+                new Uint8Array(
+                  await crypto.subtle.digest("SHA-256", te.encode(s)),
+                ),
+              h = Array.from(await sh("mc1|" + code), (x) =>
+                x.toString(16).padStart(2, "0"),
+              ).join("");
+            bk = await crypto.subtle.importKey(
+              "raw",
+              await sh("mc1k|" + code),
+              "AES-GCM",
+              false,
+              ["encrypt", "decrypt"],
+            );
+            room = h.slice(16, 24);
+            pass = code;
+            Broker.open(
+              "mc1/" + h.slice(0, 16),
+              me,
+              async (t, s) => {
+                let p;
+                try {
+                  p = await bdec(s);
+                } catch (e) {
+                  return;
+                }
+                if (!p || typeof p !== "object") return;
+                if (p.k === "hi" && ID.test(p.f) && p.f !== me) {
+                  known.set(p.f, now());
+                  if (t.endsWith("/all")) bpub(p.f, { k: "hi", f: me });
+                  fillSoon();
+                } else if (
+                  p.k === "sg" &&
+                  typeof p.i === "string" &&
+                  p.to === me &&
+                  sgSeen(p.i)
+                )
+                  handleSg(p);
+              },
+              (st) => {
+                on.qstatus(st);
+                if (st === "up") bpub("all", { k: "hi", f: me });
+              },
+            );
+          }
+          hbT = setInterval(beat, 2000);
+          function destroy() {
+            off = true;
+            Broker.close();
+            clearInterval(hbT);
+            clearTimeout(fillT);
+            [...links.values(), ...pend.values(), ...dial.values()].forEach(
+              kill,
+            );
+          }
+          return {
+            on,
+            me,
+            links,
+            quick,
+            view,
+            learn,
+            graph,
+            diag,
+            host,
+            join,
+            accept,
+            reconnectAll,
+            destroy,
+            warn,
+            setPass: (p) => {
+              pass = p;
+            },
+            get room() {
+              return room;
+            },
+            get mode() {
+              return mode;
+            },
+            get hub() {
+              return hub;
+            },
+          };
+        })();
+
+        /* ===================== gossip.js — rumor push + anti-entropy pull, peer sampling ===================== */
+        const Gossip = (() => {
+          const seen = new Map();
+          let aeT = 0,
+            lastDiv = 0;
+          const sn = (i) => {
+            if (typeof i !== "string" || seen.has(i)) return false;
+            seen.set(i, 1);
+            if (seen.size > 2000) seen.delete(seen.keys().next().value);
+            return true;
+          };
+          const open = () =>
+            [...Mesh.links.values()].filter(
+              (l) => l.sec && l.st !== "connecting",
+            );
+          const sampleW = (a, k) =>
+            a
+              .map((l) => [Math.random() ** (1 / Math.max(5, l.score)), l])
+              .sort((x, y) => y[0] - x[0])
+              .slice(0, k)
+              .map((x) => x[1]);
+          function push(a, r, h, except) {
+            if (h > 6 || (!a.length && !r.length)) return;
+            if (h > 0 && Math.random() > Math.max(0.4, 1 - 0.2 * h)) return;
+            const c = open().filter((l) => l !== except);
+            for (const l of sampleW(c, Math.ceil(Math.log2(c.length + 1)) + 1))
+              Rtc.send(l, { k: "ms", a, r, h });
+          }
+          async function say(x) {
+            const m = await W.call("crdt.local", [x]);
+            UI.dirty();
+            push([m], [], 0, null);
+          }
+          async function retract(id) {
+            const r = await W.call("crdt.rm", [id]);
+            if (r) {
+              UI.dirty();
+              push([], [r], 0, null);
+            }
+          }
+          function typing() {
+            const i = rid();
+            sn(i);
+            for (const l of sampleW(open(), 2))
+              Rtc.send(l, { k: "ty", i, s: Mesh.me, h: 0 });
+          }
+          async function ae(l) {
+            const s = await W.call("crdt.sum");
+            Rtc.send(l, { k: "sv", h: s.h, n: s.n, vv: s.vv, v: Mesh.view() });
+          }
+          const hi = (l) => ae(l).catch(() => {});
+          function loop() {
+            aeT = setTimeout(
+              async () => {
+                try {
+                  for (const l of sampleW(open(), 2)) await ae(l);
+                } catch (e) {}
+                loop();
+              },
+              3000 + Math.random() * 5000,
+            );
+          }
+          async function sendIds(l, ids) {
+            const g = await W.call("crdt.get", [ids]);
+            if (!g.ms.length && g.rm.length)
+              Rtc.send(l, { k: "ms", a: [], r: g.rm, h: 5 });
+            for (let i = 0; i < g.ms.length; i += 12)
+              Rtc.send(l, {
+                k: "ms",
+                a: g.ms.slice(i, i + 12),
+                r: i ? [] : g.rm,
+                h: 5,
+              });
+          }
+          const okIds = (a) =>
+            Array.isArray(a)
+              ? a
+                  .filter((x) => typeof x === "string" && x.length === 8)
+                  .slice(0, 600)
+              : [];
+          const eqVV = (a, b) => {
+            const k = Object.keys(a);
+            return (
+              b &&
+              typeof b === "object" &&
+              k.length === Object.keys(b).length &&
+              k.every((x) => a[x] === b[x])
+            );
+          };
+          async function handle(l, p) {
+            try {
+              switch (p.k) {
+                case "ms": {
+                  if (!Array.isArray(p.a) || p.a.length > 30) return;
+                  const r = await W.call("crdt.merge", [
+                    p.a,
+                    Array.isArray(p.r) ? p.r.slice(0, 30) : [],
+                  ]);
+                  if (r.bad)
+                    Mesh.warn(
+                      r.bad +
+                        " invalid/forged message(s) from " +
+                        l.id +
+                        " dropped",
+                    );
+                  if (r.added.length || r.rm.length) {
+                    UI.dirty();
+                    push(r.added, r.rm, (p.h | 0) + 1, l);
+                  }
+                  break;
+                }
+                case "sv": {
+                  Mesh.learn(p.v);
+                  const s = await W.call("crdt.sum");
+                  if (s.h !== p.h) {
+                    if (eqVV(s.vv, p.vv) && now() - lastDiv > 60000) {
+                      lastDiv = now();
+                      Mesh.warn(
+                        "State divergence vs " +
+                          l.id +
+                          " at equal version vectors — reconciling",
+                      );
+                    }
+                    Rtc.send(l, {
+                      k: "sd",
+                      ids: await W.call("crdt.ids"),
+                      v: Mesh.view(),
+                    });
+                  }
+                  break;
+                }
+                case "sd": {
+                  Mesh.learn(p.v);
+                  const th = okIds(p.ids),
+                    ts = new Set(th),
+                    mine = await W.call("crdt.ids"),
+                    ms = new Set(mine),
+                    give = mine.filter((i) => !ts.has(i)),
+                    want = th.filter((i) => !ms.has(i));
+                  if (give.length) await sendIds(l, give.slice(0, 120));
+                  if (want.length)
+                    Rtc.send(l, { k: "rq", ids: want.slice(0, 100) });
+                  break;
+                }
+                case "rq":
+                  await sendIds(l, okIds(p.ids).slice(0, 100));
+                  break;
+                case "ty":
+                  if (!sn(p.i)) return;
+                  UI.typing(String(p.s).slice(0, 8));
+                  if ((p.h | 0) < 3)
+                    for (const x of sampleW(
+                      open().filter((y) => y !== l),
+                      2,
+                    ))
+                      Rtc.send(x, {
+                        k: "ty",
+                        i: p.i,
+                        s: p.s,
+                        h: (p.h | 0) + 1,
+                      });
+                  break;
+              }
+            } catch (e) {
+              Mesh.warn("Gossip handler error: " + e.message);
+            }
+          }
+          loop();
+          return {
+            say,
+            retract,
+            typing,
+            hi,
+            handle,
+            stop: () => clearTimeout(aeT),
+          };
+        })();
+
+        /* ===================== signal.js — chunking, fallback chain helpers, QR scan ===================== */
+        const Sig = (() => {
+          const asm = new Map();
+          let stream = null,
+            iv = 0,
+            busy = false;
+          const chunks = (blob, n = 650) => {
+            if (blob.length <= 900) return [blob];
+            const id = rid().slice(0, 4),
+              c = Math.ceil(blob.length / n);
+            return Array.from(
+              { length: c },
+              (_, i) =>
+                "MC1|" +
+                id +
+                "|" +
+                (i + 1) +
+                "|" +
+                c +
+                "|" +
+                blob.slice(i * n, (i + 1) * n),
+            );
+          };
+          function assemble(t) {
+            const parts = t.trim().split(/\s+/).filter(Boolean);
+            if (!parts.some((p) => p.startsWith("MC1|"))) return t.trim();
+            let done = null;
+            for (const p of parts) {
+              if (!p.startsWith("MC1|")) continue;
+              const [, id, i, n, ...r] = p.split("|");
+              let g = asm.get(id);
+              if (!g) {
+                g = { n: +n, c: new Map() };
+                asm.set(id, g);
+                if (asm.size > 8) asm.delete(asm.keys().next().value);
+              }
+              if (!g.c.has(+i)) {
+                g.c.set(+i, r.join("|"));
+                UI.toast("Chunk " + g.c.size + "/" + g.n + " received", "info");
+              }
+              if (g.c.size === g.n) {
+                done = Array.from({ length: g.n }, (_, k) =>
+                  g.c.get(k + 1),
+                ).join("");
+                asm.delete(id);
+              }
+            }
+            return done;
+          }
+          const stop = (v) => {
+            clearInterval(iv);
+            iv = 0;
+            if (stream) {
+              stream.getTracks().forEach((t) => t.stop());
+              stream = null;
+            }
+            v.srcObject = null;
+            v.hidden = true;
+          };
+          async function scan(v, cb) {
+            if (stream) {
+              stop(v);
+              return;
+            }
+            if (!navigator.mediaDevices)
+              throw new Error(
+                "Camera unavailable (needs HTTPS) — paste manually",
+              );
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: "environment" },
+            });
+            v.srcObject = stream;
+            v.hidden = false;
+            await v.play();
+            iv = setInterval(async () => {
+              if (busy || !v.videoWidth) return;
+              busy = true;
+              try {
+                const bmp = await createImageBitmap(v),
+                  t = await W.call("qr.dec", [bmp], [bmp]);
+                if (t) cb(t);
+              } catch (e) {
+                if (/nodet/.test(e.message)) {
+                  stop(v);
+                  UI.toast(
+                    "QR decoding not supported by this browser — use the phone camera app (opens the link) or paste",
+                    "warn",
+                  );
+                }
+              }
+              busy = false;
+            }, 300);
+          }
+          return { chunks, assemble, scan, stop };
+        })();
+
+        /* ===================== ui.js ===================== */
+        const UI = (() => {
+          const log = $("log"),
+            cv = $("g"),
+            cx = cv.getContext("2d"),
+            M = Mesh.on,
+            METHODS = ["qr", "paste", "link", "gist"],
+            tyT = new Map(),
+            hist = [];
+          let off = 0,
+            total = 0,
+            busy = false,
+            dT = 0,
+            cT = 0,
+            pm = new Map(),
+            G = null,
+            glast = "",
+            run = false,
+            cur = { blob: "", link: "" },
+            role = "",
+            mi = 0,
+            pf = 0,
+            carT = 0,
+            gt = 0,
+            glastTxt = "",
+            W_ = 0,
+            H_ = 0;
+          const el = (t, c, x) => {
+            const e = document.createElement(t);
+            if (c) e.className = c;
+            if (x != null) e.textContent = x;
+            return e;
+          };
+          function toast(m, k = "info") {
+            const t = $("toasts"),
+              d = el("div", "toast " + k, m);
+            t.append(d);
+            while (t.children.length > 4) t.firstChild.remove();
+            setTimeout(() => d.remove(), 5500);
+          }
+          const dirty = () => {
+            if (!dT)
+              dT = setTimeout(() => {
+                dT = 0;
+                refresh();
+              }, 60);
+          };
+          function row(m) {
+            const own = m.s === Mesh.me,
+              d = el("div", "msg" + (own ? " me" : ""));
+            d.dataset.id = m.id;
+            const a = el("b", "", own ? "you" : m.s.slice(0, 4));
+            a.style.color = "hsl(" + (hs(m.s) % 360) + " 45% 38%)";
+            d.append(
+              a,
+              el("span", "", m.x),
+              el(
+                "i",
+                "tk",
+                new Date(m.l).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
+              ),
+            );
+            if (own) d.ondblclick = () => Gossip.retract(m.id);
+            return d;
+          }
+          async function refresh() {
+            if (busy) {
+              dirty();
+              return;
+            }
+            busy = true;
+            try {
+              const v = await W.call("crdt.view", [off, 120]);
+              total = v.total;
+              $("empty").hidden = total > 0 || !!curCode;
+              const fol =
+                off === 0 &&
+                log.scrollHeight - log.scrollTop - log.clientHeight < 90;
+              let aid = null,
+                ad = 0;
+              if (!fol)
+                for (const c of log.children)
+                  if (c.offsetTop + c.offsetHeight > log.scrollTop) {
+                    aid = c.dataset.id;
+                    ad = c.offsetTop - log.scrollTop;
+                    break;
+                  }
+              const f = document.createDocumentFragment();
+              for (const m of v.ms) f.append(row(m));
+              log.replaceChildren(f);
+              if (fol) log.scrollTop = log.scrollHeight;
+              else if (aid) {
+                const e = log.querySelector('[data-id="' + aid + '"]');
+                if (e) log.scrollTop = e.offsetTop - ad;
+              }
+            } catch (e) {
+              toast("Render failed: " + e.message, "err");
+            }
+            busy = false;
+          }
+          log.onscroll = () => {
+            if (busy) return;
+            if (log.scrollTop < 30 && total > off + 120) {
+              off += 40;
+              refresh();
+            } else if (
+              off > 0 &&
+              log.scrollHeight - log.scrollTop - log.clientHeight < 30
+            ) {
+              off = Math.max(0, off - 40);
+              refresh();
+            }
+          };
+          const tyShow = () => {
+            const a = [...tyT.keys()].map((x) => x.slice(0, 4));
+            $("ty").textContent = a.length ? a.join(", ") + " typing…" : "";
+          };
+          function typing(s) {
+            clearTimeout(tyT.get(s));
+            tyT.set(
+              s,
+              setTimeout(() => {
+                tyT.delete(s);
+                tyShow();
+              }, 3500),
+            );
+            tyShow();
+          }
+          $("f").onsubmit = (e) => {
+            e.preventDefault();
+            const x = $("in").value.trim();
+            if (x) {
+              $("in").value = "";
+              Gossip.say(x).catch((er) =>
+                toast("Send failed: " + er.message, "err"),
+              );
+            }
+          };
+          let lt = 0;
+          $("in").oninput = () => {
+            const n = now();
+            if (n - lt > 2000) {
+              lt = n;
+              Gossip.typing();
+            }
+          };
+          new ResizeObserver(() => {
+            const d = devicePixelRatio || 1,
+              r = cv.getBoundingClientRect();
+            W_ = r.width;
+            H_ = r.height;
+            cv.width = W_ * d;
+            cv.height = H_ * d;
+            cx.setTransform(d, 0, 0, d, 0, 0);
+          }).observe(cv);
+          W.onpos = (d) => {
+            pm = new Map(
+              d.ids.map((id, i) => [id, [d.xy[2 * i], d.xy[2 * i + 1]]]),
+            );
+          };
+          const COL = {
+            self: "#c2703d",
+            open: "#5b8a5f",
+            unstable: "#d9a13b",
+            connecting: "#a89d8a",
+            gone: "#c0564b",
+            via: "#9a7fb8",
+          };
+          function frame(t) {
+            if (document.hidden || !$("pn").classList.contains("on")) {
+              run = false;
+              return;
+            }
+            cx.clearRect(0, 0, W_, H_);
+            if (G) {
+              const R = Math.min(W_, H_) / 2 - 26,
+                X = W_ / 2,
+                Y = H_ / 2,
+                P = (id) => {
+                  const p = pm.get(id);
+                  return p ? [X + p[0] * R, Y + p[1] * R] : null;
+                };
+              cx.lineWidth = 1.2;
+              for (const [a, b] of G.edges) {
+                const A = P(a),
+                  B = P(b);
+                if (!A || !B) continue;
+                const d = a === G.me || b === G.me;
+                cx.strokeStyle = d
+                  ? "rgba(194,112,61,.6)"
+                  : "rgba(140,130,114,.35)";
+                cx.setLineDash(d ? [6, 6] : [2, 4]);
+                cx.lineDashOffset = -t / 60;
+                cx.beginPath();
+                cx.moveTo(A[0], A[1]);
+                cx.lineTo(B[0], B[1]);
+                cx.stroke();
+              }
+              cx.setLineDash([]);
+              cx.font = "10px system-ui";
+              cx.textAlign = "center";
+              for (const n of G.nodes) {
+                const p = P(n.id);
+                if (!p) continue;
+                const c = COL[n.st] || COL.via,
+                  r =
+                    n.id === G.me
+                      ? 9
+                      : 7 + (n.st === "open" ? Math.sin(t / 300) * 0.8 : 0);
+                cx.fillStyle = c;
+                cx.beginPath();
+                cx.arc(p[0], p[1], r, 0, 6.283);
+                cx.fill();
+                cx.shadowBlur = 0;
+                cx.fillStyle = "#8c8272";
+                cx.fillText(n.id.slice(0, 4), p[0], p[1] + r + 11);
+              }
+            }
+            requestAnimationFrame(frame);
+          }
+          const kick = () => {
+            if (!run && !document.hidden && $("pn").classList.contains("on")) {
+              run = true;
+              requestAnimationFrame(frame);
+            }
+          };
+          document.addEventListener("visibilitychange", kick);
+          function sync() {
+            G = Mesh.graph();
+            const key =
+              G.nodes.map((n) => n.id).join() +
+              "|" +
+              G.edges.map((e) => e.join("-")).join();
+            if (key !== glast) {
+              glast = key;
+              const ix = new Map(G.nodes.map((n, i) => [n.id, i]));
+              W.call("lay.set", [
+                G.nodes.map((n) => n.id),
+                G.edges
+                  .map(([a, b]) => [ix.get(a), ix.get(b)])
+                  .filter((e) => e[0] != null && e[1] != null),
+                Mesh.me,
+              ]).catch(() => {});
+            }
+            kick();
+          }
+          M.change = () => {
+            if (!cT)
+              cT = setTimeout(() => {
+                cT = 0;
+                sync();
+                diag();
+              }, 120);
+          };
+          function diag() {
+            const d = Mesh.diag(),
+              n = d.peers.filter((p) => p.st === "open").length,
+              s = $("st");
+            s.textContent = n
+              ? "● " +
+                n +
+                " connected" +
+                (d.mode === "full" ? "" : " · " + d.mode)
+              : Mesh.room
+                ? "Waiting for peers…"
+                : "Not connected";
+            s.className = "pill" + (n ? " ok" : "");
+            return d;
+          }
+          const tog = (id, f) => {
+            const e = $(id);
+            e.classList.toggle(
+              "on",
+              f === undefined ? !e.classList.contains("on") : f,
+            );
+            if (id === "pn") kick();
+          };
+          $("bInv").onclick = () => tog("pc");
+          $("bNet").onclick = () => tog("pn");
+          $("eNew").onclick = () => $("bNew").click();
+          $("eJoin").onclick = () => {
+            tog("pc", true);
+            setTimeout(() => $("jc").focus(), 350);
+          };
+          function setMethod(i) {
+            mi = i;
+            document
+              .querySelectorAll("#meth button")
+              .forEach((b) =>
+                b.classList.toggle("on", b.dataset.m === METHODS[i]),
+              );
+            document
+              .querySelectorAll(".m")
+              .forEach((m) =>
+                m.classList.toggle("on", m.dataset.m === METHODS[i]),
+              );
+          }
+          document
+            .querySelectorAll("#meth button")
+            .forEach(
+              (b) =>
+                (b.onclick = () => setMethod(METHODS.indexOf(b.dataset.m))),
+            );
+          document.querySelectorAll("#tabs button").forEach(
+            (b) =>
+              (b.onclick = () => {
+                document.body.dataset.tab = b.dataset.t;
+                kick();
+              }),
+          );
+          async function drawQR(text) {
+            const q = $("qr"),
+              r = await W.call("qr.gen", [text]),
+              s = Math.max(2, Math.floor(300 / (r.n + 8))),
+              z = (r.n + 8) * s;
+            q.width = q.height = z;
+            q.style.width = Math.min(z, 300) + "px";
+            q.style.display = "block";
+            const c = q.getContext("2d");
+            c.fillStyle = "#fff";
+            c.fillRect(0, 0, z, z);
+            c.fillStyle = "#000";
+            for (let y = 0; y < r.n; y++)
+              for (let x = 0; x < r.n; x++)
+                if (r.d[y * r.n + x])
+                  c.fillRect((x + 4) * s, (y + 4) * s, s, s);
+          }
+          async function out(o, qrOk = true) {
+            const blob = await W.call("sg.pack", [o]),
+              link =
+                location.origin + location.pathname + "#" + o.t + "=" + blob;
+            cur = { blob, link };
+            $("blob").value = blob;
+            $("lnk").value = link;
+            clearInterval(carT);
+            carT = 0;
+            $("qrl").textContent = "";
+            if (!qrOk) {
+              $("qr").style.display = "none";
+              return;
+            }
+            const items = link.length <= 900 ? [link] : Sig.chunks(blob);
+            let i = 0;
+            const show = async () => {
+              try {
+                await drawQR(items[i]);
+                $("qrl").textContent =
+                  items.length > 1
+                    ? "Chunk " +
+                      (i + 1) +
+                      "/" +
+                      items.length +
+                      " — scan all (auto-cycling)"
+                    : "Scan with any camera app";
+                i = (i + 1) % items.length;
+              } catch (e) {
+                clearInterval(carT);
+                $("qr").style.display = "none";
+                toast(
+                  "QR failed: " + e.message + " — use Paste or Link",
+                  "warn",
+                );
+              }
+            };
+            await show();
+            if (items.length > 1) carT = setInterval(show, 1600);
+          }
+          async function importState(s) {
+            if (!Array.isArray(s.l)) throw new Error("Bad state");
+            const r = await W.call("crdt.merge", [s.l.slice(-300), []]);
+            dirty();
+            return r.added.length;
+          }
+          async function apply() {
+            const b = Sig.assemble($("blob").value);
+            if (b == null || b === "") return;
+            let o;
+            try {
+              o = await W.call("sg.unpack", [b]);
+              if (
+                !o ||
+                !["o", "a", "s"].includes(o.t) ||
+                (o.t !== "s" && !/^v=0/.test(o.sdp || ""))
+              )
+                throw 0;
+            } catch (e) {
+              toast(
+                "Invalid or corrupted blob — copy it again completely",
+                "err",
+              );
+              return;
+            }
+            try {
+              if (o.t === "o") {
+                role = "join";
+                await out(await Mesh.join(o));
+                toast(
+                  "Answer ready — return it to the host by your chosen method, then they press Apply",
+                  "ok",
+                );
+              } else if (o.t === "a") {
+                await Mesh.accept(o);
+                toast("Answer applied — connecting…", "ok");
+              } else
+                toast(
+                  "State merged (" + (await importState(o)) + " new)",
+                  "ok",
+                );
+            } catch (e) {
+              toast(e.message || "Could not apply blob (invalid SDP?)", "err");
+            }
+          }
+          $("bHost").onclick = async () => {
+            try {
+              role = "host";
+              await out(await Mesh.host());
+              toast(
+                "Offer ready — share it, then Apply the answer you receive",
+                "ok",
+              );
+            } catch (e) {
+              toast("Could not create offer: " + e.message, "err");
+            }
+          };
+          $("bApply").onclick = apply;
+          $("bRe").onclick = async () => {
+            if (!Mesh.reconnectAll()) {
+              try {
+                role = "host";
+                await out(await Mesh.host());
+                toast("No live links — fresh offer generated", "warn");
+              } catch (e) {
+                toast(e.message, "err");
+              }
+            } else toast("Re-dialing known peers through the mesh…", "info");
+          };
+          async function copy(t) {
+            try {
+              await navigator.clipboard.writeText(t);
+            } catch (e) {
+              const b = $("blob");
+              b.value = t;
+              b.select();
+              document.execCommand("copy");
+            }
+            toast("Copied", "ok");
+          }
+          $("bCopy").onclick = () => cur.blob && copy(cur.blob);
+          $("bLink").onclick = () =>
+            cur.link ? copy(cur.link) : toast("Nothing to link yet", "warn");
+          $("bShare").onclick = () =>
+            cur.link && navigator.share
+              ? navigator.share({ url: cur.link }).catch(() => {})
+              : toast("Sharing unsupported — copy the link", "warn");
+          $("bExp").onclick = async () => {
+            const s = await W.call("crdt.view", [0, 300]);
+            await out({ t: "s", l: s.ms }, false);
+            toast(
+              "State exported to the box — Copy blob to back up or share",
+              "ok",
+            );
+          };
+          $("bScan").onclick = async () => {
+            try {
+              await Sig.scan($("cam"), (t) => {
+                const b = Sig.assemble(t);
+                if (b == null || b === "") return;
+                Sig.stop($("cam"));
+                $("blob").value = b;
+                apply();
+              });
+            } catch (e) {
+              Sig.stop($("cam"));
+              toast(
+                e.name === "NotAllowedError"
+                  ? "Camera denied — falling back to Paste"
+                  : e.message,
+                "warn",
+              );
+              setMethod(1);
+            }
+          };
+          $("pass").onchange = () => {
+            Mesh.setPass($("pass").value);
+            toast(
+              "Passphrase set for NEW links — every peer must use the same one",
+              "info",
+            );
+          };
+          M.linked = (id) => {
+            pf = 0;
+            tog("pc", false);
+            toast("Secure link established with " + id, "ok");
+            dirty();
+          };
+          M.pairfail = async () => {
+            pf++;
+            if (pf >= 4) {
+              toast(
+                "All signaling routes failed — likely NAT/firewall blocking (no TURN). Try another network or device.",
+                "err",
+              );
+              return;
+            }
+            setMethod((mi + 1) % 4);
+            toast(
+              "Pairing failed — switching to “" +
+                METHODS[mi] +
+                "”" +
+                (role === "host"
+                  ? ", new offer generated"
+                  : "; ask the host for a fresh offer"),
+              "warn",
+            );
+            if (role === "host") {
+              try {
+                await out(await Mesh.host());
+              } catch (e) {}
+            }
+          };
+          M.toast = toast;
+          async function gpoll() {
+            const id = $("gist").value.trim();
+            if (!id) return;
+            try {
+              const r = await fetch(
+                "https://api.github.com/gists/" + encodeURIComponent(id),
+                { cache: "no-store" },
+              );
+              if (!r.ok) throw 0;
+              const f = Object.values((await r.json()).files)[0],
+                t = ((f && f.content) || "").trim();
+              if (!t || t === glastTxt || t === cur.blob) return;
+              glastTxt = t;
+              $("blob").value = t;
+              await apply();
+            } catch (e) {
+              toast(
+                "Gist unreachable (blocked/private/rate-limited) — use another route",
+                "warn",
+              );
+            }
+          }
+          $("bGist").onclick = gpoll;
+          $("gist").onchange = () => {
+            clearInterval(gt);
+            gt = $("gist").value.trim() ? setInterval(gpoll, 60000) : 0;
+          };
+          let curCode = "";
+          M.qstatus = (s) => {
+            $("qs").textContent =
+              s === "up"
+                ? "Waiting for peers who enter the same code…"
+                : s === "connecting"
+                  ? "Contacting rendezvous server…"
+                  : "Rendezvous server unreachable — retrying (or use manual pairing below)";
+          };
+          async function start(code, q) {
+            curCode = code;
+            $("empty").hidden = true;
+            if (!q) tog("pc", true);
+            $("code").textContent = code.match(/.{4}/g).join("-");
+            $("code").hidden = false;
+            $("cr").hidden = false;
+            try {
+              await Mesh.quick(code);
+            } catch (e) {
+              toast("Could not start: " + e.message, "err");
+            }
+          }
+          $("bNew").onclick = () =>
+            start(
+              Array.from(
+                crypto.getRandomValues(new Uint8Array(16)),
+                (b) => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 32],
+              ).join(""),
+            );
+          $("bJoin").onclick = () => {
+            const v = $("jc").value,
+              m = v.match(/#c=([A-Za-z0-9-]+)/),
+              c = (m ? m[1] : v).replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+            if (c.length !== 16) {
+              toast("Paste the full invite link or 16-character code", "warn");
+              return;
+            }
+            start(c);
+          };
+          $("jc").onkeydown = (e) => {
+            if (e.key === "Enter") $("bJoin").click();
+          };
+          $("bCC").onclick = () => copy(curCode.match(/.{4}/g).join("-"));
+          $("bCL").onclick = () =>
+            copy(location.origin + location.pathname + "#c=" + curCode);
+          setMethod(0);
+          if (!W.ok) toast("Web Workers unavailable — app cannot run", "err");
+          if (!window.RTCPeerConnection || !(crypto && crypto.subtle))
+            toast("WebRTC/WebCrypto missing (needs HTTPS or localhost)", "err");
+          W.call("init", [Mesh.me]).catch(() => {});
+          const hc = location.hash.match(/^#c=([A-Za-z0-9]{16})$/);
+          if (hc) {
+            history.replaceState(null, "", location.pathname + location.search);
+            document.body.dataset.tab = "con";
+            start(hc[1], 1);
+          }
+          if (/^#[oas]=/.test(location.hash)) {
+            $("blob").value = location.href;
+            history.replaceState(null, "", location.pathname + location.search);
+            document.body.dataset.tab = "con";
+            apply();
+          }
+          addEventListener("pagehide", () => {
+            Gossip.stop();
+            Mesh.destroy();
+            clearInterval(gt);
+            clearInterval(carT);
+            W.kill();
+          });
+          sync();
+          diag();
+          dirty();
+          return { toast, dirty, typing };
+        })();
+      })();
+    </script>
+  </body>
+</html>
