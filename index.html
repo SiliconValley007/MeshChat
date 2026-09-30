@@ -77,6 +77,7 @@
         font-size: 17px;
       }
       .pill {
+        white-space: nowrap;
         font-size: 12px;
         color: var(--d);
         background: #f1eadb;
@@ -1349,6 +1350,7 @@
             rc = 0,
             want = false,
             ok = false,
+            lastRx = 0,
             buf = new Uint8Array(0);
           const s2 = (s) => {
             const b = E.encode(s);
@@ -1409,6 +1411,7 @@
             };
           }
           function parse(u) {
+            lastRx = Date.now();
             const c = new Uint8Array(buf.length + u.length);
             c.set(buf);
             c.set(u, buf.length);
@@ -1440,14 +1443,16 @@
                   ]),
                 );
                 ok = true;
+                lastRx = Date.now();
                 clearInterval(pt);
-                pt = setInterval(
-                  () =>
-                    ws &&
-                    ws.readyState === 1 &&
-                    ws.send(Uint8Array.of(0xc0, 0)),
-                  30000,
-                );
+                pt = setInterval(() => {
+                  if (!ws || ws.readyState !== 1) return;
+                  if (Date.now() - lastRx > 45000) {
+                    kick();
+                    return;
+                  }
+                  ws.send(Uint8Array.of(0xc0, 0));
+                }, 15000);
                 st("up");
               } else if (t === 3) {
                 const tl = (body[0] << 8) | body[1];
@@ -1488,9 +1493,26 @@
             ui = 0;
             connect();
           }
+          function kick() {
+            if (!want) return;
+            const w = ws;
+            ws = null;
+            ok = false;
+            clearInterval(pt);
+            clearTimeout(rc);
+            if (w) {
+              w.onclose = w.onerror = w.onmessage = null;
+              try {
+                w.close();
+              } catch (e) {}
+            }
+            ui = 0;
+            connect();
+          }
           return {
             open,
             close,
+            kick,
             pub,
             get ready() {
               return ok;
@@ -1509,7 +1531,8 @@
             mode = "full",
             hub = null,
             hbT = 0,
-            bn = 0;
+            bn = 0,
+            ever = false;
           const links = new Map(),
             pend = new Map(),
             dial = new Map(),
@@ -1531,15 +1554,15 @@
           const cap = () =>
             mode === "full" ? 9 : mode === "partial" ? 4 : hub === me ? 9 : 1;
           function topo() {
-            const n = now();
-            while (fs.length && n - fs[0] > 60000) fs.shift();
-            const N = Math.max(known.size, links.size) + 1,
-              m =
-                N > 10 || fs.length >= 4 ? "star" : N > 6 ? "partial" : "full";
-            const alive = [
-              me,
-              ...[...known].filter(([i, t]) => n - t < 60000).map((x) => x[0]),
-            ].sort();
+            const n = now(),
+              alive = [
+                me,
+                ...[...known]
+                  .filter(([i, t]) => n - t < 45000)
+                  .map((x) => x[0]),
+              ].sort(),
+              N = alive.length,
+              m = N > 10 ? "star" : N > 6 ? "partial" : "full";
             hub = m === "star" ? alive[0] : null;
             if (m !== mode) {
               mode = m;
@@ -1581,26 +1604,28 @@
           function fail(id) {
             const f = fails.get(id) || { n: 0, t: 0 };
             f.n++;
-            f.t = now() + 5000 * f.n;
+            f.t = now() + Math.min(60000, 5000 * f.n * f.n);
             fails.set(id, f);
-            fs.push(now());
-            warn(
-              f.n >= 3
-                ? "Cannot reach " +
-                    id +
-                    ": NAT/ICE failure (symmetric NAT or CGNAT likely; no TURN relay). Messages still route via other peers if any path exists."
-                : "Dial to " + id + " failed, retrying…",
-            );
+            if (f.n === 3)
+              warn(
+                "Having trouble reaching " +
+                  id +
+                  " (NAT/firewall or peer offline). Still retrying in the background.",
+              );
           }
           function drop(l, why) {
             if (l.dead) return;
             const id = l.id;
             kill(l);
             if (id) {
+              known.set(id, now());
               adj.delete(id);
               flaps.set(id, (flaps.get(id) || 0) + 1);
               retry.set(id, { n: 0, at: now() + 3000, pr: l.score });
-              warn("Peer " + id + " lost (" + why + "). Recovery queued.");
+              on.toast(
+                "Peer " + id.slice(0, 4) + " disconnected — reconnecting…",
+                "info",
+              );
             } else if (l.want) fail(l.want);
             else {
               if (/ICE failed/.test(why)) {
@@ -1633,7 +1658,7 @@
             if (mode === "star" && hub !== me && id !== hub) return;
             if ((pruned.get(id) || 0) > now()) return;
             const f = fails.get(id);
-            if (f && (f.n >= 3 || now() < f.t)) return;
+            if (f && now() < f.t) return;
             if (me < id) dialTo(id);
             else if (mode === "star" && id === hub) reach(id);
           }
@@ -1731,11 +1756,13 @@
           async function handleSg(p) {
             if (!ID.test(p.f)) return;
             if (p.d === "n") {
+              const ol = links.get(p.f);
+              if (ol && now() - ol.last > 4000)
+                drop(ol, "peer asked to reconnect");
               fails.delete(p.f);
               consider(p.f);
             } else if (p.d === "o") {
               if (
-                links.has(p.f) ||
                 dial.has(p.f) ||
                 links.size + pend.size >= 18 ||
                 typeof p.sdp !== "string"
@@ -1803,6 +1830,7 @@
               );
               return;
             }
+            ever = true;
             l.id = p.id;
             l.sec = true;
             l.st = "open";
@@ -1934,6 +1962,7 @@
             const n = now();
             bn++;
             links.forEach((l) => {
+              known.set(l.id, n);
               const dt = n - l.last;
               if (dt > 20000) {
                 drop(l, "timeout");
@@ -1973,7 +2002,7 @@
               if (n - v.t > 40000) adj.delete(k);
             });
             known.forEach((t, k) => {
-              if (n - t > 120000 && !links.has(k)) known.delete(k);
+              if (n - t > 60000 && !links.has(k)) known.delete(k);
             });
             pruned.forEach((t, k) => {
               if (t < n) pruned.delete(k);
@@ -1981,22 +2010,13 @@
             topo();
             if (bn % 7 === 0 && Broker.ready && links.size < cap())
               bpub("all", { k: "hi", f: me });
+            retryTick();
             if (bn % 5 === 0) {
               prune();
               flaps.forEach((v, k) => {
                 if (v * 0.7 < 0.2) flaps.delete(k);
                 else flaps.set(k, v * 0.7);
               });
-              [...retry]
-                .filter(([, r]) => r.at <= n)
-                .sort((a, b) => b[1].pr - a[1].pr)
-                .slice(0, 2)
-                .forEach(([id, r]) => {
-                  r.n++;
-                  r.at = n + Math.min(60000, 3000 * 2 ** r.n);
-                  if (r.n > 6) retry.delete(id);
-                  else reach(id);
-                });
               fill();
             }
             on.change();
@@ -2037,6 +2057,7 @@
             const g = graph(),
               N = g.nodes.length;
             return {
+              ever,
               mode,
               hub,
               N,
@@ -2153,6 +2174,9 @@
                 if (!p || typeof p !== "object") return;
                 if (p.k === "hi" && ID.test(p.f) && p.f !== me) {
                   known.set(p.f, now());
+                  const ol = links.get(p.f);
+                  if (ol && now() - ol.last > 6000)
+                    drop(ol, "peer re-announced");
                   if (t.endsWith("/all")) bpub(p.f, { k: "hi", f: me });
                   fillSoon();
                 } else if (
@@ -2169,6 +2193,46 @@
               },
             );
           }
+          function retryTick() {
+            const n = now();
+            [...retry]
+              .filter(([, r]) => r.at <= n)
+              .sort((a, b) => b[1].pr - a[1].pr)
+              .slice(0, 2)
+              .forEach(([id, r]) => {
+                if (!known.has(id) || links.has(id)) {
+                  retry.delete(id);
+                  return;
+                }
+                r.n++;
+                r.at = n + Math.min(30000, 3000 * 2 ** r.n);
+                if (r.n > 12) retry.delete(id);
+                else reach(id);
+              });
+          }
+          /* network change / tab resume / screen unlock: re-open broker, verify links, redial everything */
+          function wake() {
+            if (off) return;
+            const t0 = now();
+            fails.clear();
+            nudge.clear();
+            retry.forEach((r) => {
+              r.at = 0;
+            });
+            known.forEach((t, k) => known.set(k, t0));
+            Broker.kick();
+            links.forEach((l) => Rtc.send(l, { k: "p", t: t0 }));
+            setTimeout(() => {
+              if (off) return;
+              links.forEach((l) => {
+                if (l.last < t0) drop(l, "stale after resume");
+              });
+              known.forEach((t, id) => {
+                if (!links.has(id)) reach(id);
+              });
+              fill();
+            }, 3500);
+          }
           hbT = setInterval(beat, 2000);
           function destroy() {
             off = true;
@@ -2184,6 +2248,7 @@
             me,
             links,
             quick,
+            wake,
             view,
             learn,
             graph,
@@ -2749,9 +2814,11 @@
                 n +
                 " connected" +
                 (d.mode === "full" ? "" : " · " + d.mode)
-              : Mesh.room
-                ? "Waiting for peers…"
-                : "Not connected";
+              : d.ever
+                ? "Reconnecting…"
+                : Mesh.room
+                  ? "Waiting for peers…"
+                  : "Not connected";
             s.className = "pill" + (n ? " ok" : "");
             return d;
           }
@@ -3096,6 +3163,20 @@
             document.body.dataset.tab = "con";
             apply();
           }
+          addEventListener("online", () => {
+            toast("Back online — reconnecting…", "info");
+            Mesh.wake();
+          });
+          addEventListener("offline", () =>
+            toast("You are offline — will reconnect automatically", "warn"),
+          );
+          addEventListener("pageshow", (e) => {
+            if (e.persisted) Mesh.wake();
+          });
+          document.addEventListener("resume", () => Mesh.wake());
+          document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) Mesh.wake();
+          });
           addEventListener("pagehide", () => {
             Gossip.stop();
             Mesh.destroy();

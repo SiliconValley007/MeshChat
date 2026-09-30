@@ -37,11 +37,11 @@ Ids are re-hashed on receipt, so forged elements are dropped. Double-click your 
 
 ## Topology modes
 
-| Mode             | When                                 | Policy                                                                      |
-| ---------------- | ------------------------------------ | --------------------------------------------------------------------------- |
-| Full mesh        | ≤ 6 peers                            | up to 9 links each                                                          |
-| Partial mesh     | 7–10 peers                           | 4 best-scoring links; low-score links pruned (`by` goodbye prevents redial) |
-| Star (emergency) | > 10 peers, or ≥ 4 dial failures/min | lowest live ID is hub; others keep only the hub link                        |
+| Mode         | When            | Policy                                                                      |
+| ------------ | --------------- | --------------------------------------------------------------------------- |
+| Full mesh    | ≤ 6 peers       | up to 9 links each                                                          |
+| Partial mesh | 7–10 peers      | 4 best-scoring links; low-score links pruned (`by` goodbye prevents redial) |
+| Star         | > 10 live peers | lowest live ID is hub; others keep only the hub link                        |
 
 Score (0–100) = `100·stability − RTT/10 − 70·loss − flap penalty`. RTT/loss come from 2 s pings. Dropped peers enter a priority retry queue (best score first, exponential backoff, dialed via mesh-routed signaling).
 
@@ -52,6 +52,10 @@ Each connection: fresh **ECDH P-256** key pair → HKDF-SHA256 (salt = `passphra
 ## Network view
 
 The optional **Network** panel shows a live force-directed map of peers (layout computed in a Web Worker). Per-peer RTT, stability, loss and score still drive peer selection and pruning internally; NAT/ICE problems and mismatched passphrases surface as toasts.
+
+## Reconnection
+
+Dropped peers enter a priority retry queue (exponential backoff, checked every 2 s). On network change (`online`), tab resume/unlock (`visibilitychange`, `resume`, `pageshow`) the app re-opens the broker socket, pings every link, drops the ones that don't answer within 3.5 s, clears failure back-off and redials all known peers. The broker connection has its own keep-alive watchdog (reconnects after 45 s of silence). A peer that re-announces while we hold a stale link replaces it. Peer lists expire after ~60 s so closed tabs do not linger.
 
 ## Limits
 
