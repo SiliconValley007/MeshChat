@@ -269,7 +269,16 @@
       #f {
         display: flex;
         gap: 8px;
+        align-items: flex-end;
         padding: 10px 12px 12px;
+      }
+      #in {
+        resize: none;
+        max-height: 120px;
+        line-height: 1.4;
+      }
+      .msg span {
+        white-space: pre-wrap;
       }
       #empty {
         position: absolute;
@@ -539,12 +548,15 @@
         </div>
         <div id="ty"></div>
         <form id="f">
-          <input
+          <textarea
             id="in"
+            rows="1"
             maxlength="1000"
             autocomplete="off"
+            enterkeyhint="send"
             placeholder="Message…"
-          /><button class="pri">Send</button>
+          ></textarea
+          ><button class="pri">Send</button>
         </form>
       </section>
     </main>
@@ -2908,18 +2920,36 @@
             );
             tyShow();
           }
+          function sendNow() {
+            const i = $("in"),
+              x = i.value.trim();
+            if (!x) return;
+            i.value = "";
+            i.style.height = "auto";
+            Gossip.say(x).catch((er) =>
+              toast("Send failed: " + er.message, "err"),
+            );
+          }
           $("f").onsubmit = (e) => {
             e.preventDefault();
-            const x = $("in").value.trim();
-            if (x) {
-              $("in").value = "";
-              Gossip.say(x).catch((er) =>
-                toast("Send failed: " + er.message, "err"),
-              );
+            sendNow();
+          };
+          $("in").onkeydown = (e) => {
+            if (
+              e.key === "Enter" &&
+              !e.shiftKey &&
+              !e.isComposing &&
+              !matchMedia("(pointer:coarse)").matches
+            ) {
+              e.preventDefault();
+              sendNow();
             }
           };
           let lt = 0;
           $("in").oninput = () => {
+            const i = $("in");
+            i.style.height = "auto";
+            i.style.height = Math.min(i.scrollHeight, 120) + "px";
             const n = now();
             if (n - lt > 2000) {
               lt = n;
@@ -3594,6 +3624,15 @@
             clearInterval(carT);
             W.kill();
           });
+          /* WhatsApp-style composer focus: buttons never steal focus from the composer; it auto-focuses on desktop */
+          document.addEventListener("mousedown", (e) => {
+            if (
+              document.activeElement === $("in") &&
+              e.target.closest("button,summary")
+            )
+              e.preventDefault();
+          });
+          if (matchMedia("(pointer:fine)").matches) $("in").focus();
           sync();
           diag();
           dirty();

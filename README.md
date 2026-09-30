@@ -69,6 +69,10 @@ Optional name (max 16 characters, control characters and `<>` stripped) set in t
 - Unreachable peers are retried ~6 times, then dropped from the retry list and disappear from the map after about a minute.
 - _Fresh room_ (checkbox before "Create private room"): one bit of the invite code marks the room as fresh, so every member enforces it: peers only send a joiner messages timestamped after it connected. Members who reload also start empty. Default rooms sync history (up to 500 messages).
 
+## Composer (WhatsApp-style)
+
+The message box auto-focuses on desktop. Enter sends, Shift+Enter adds a new line (on touch devices Enter adds a line and the Send button sends). Clicking Send or any other button does not steal focus if the box had it, and the box is not focused if it did not have focus before. Long messages grow the box up to 5 lines.
+
 ## Live map
 
 The Network panel shows every peer with its state (connected, unstable, connecting, reconnecting with retry countdown, disconnected, via mesh), RTT/score/loss, animated links, broker and network status, and an event log.
