@@ -815,6 +815,13 @@
           ops.init = (me) => {
             C.me = me;
           };
+          ops["crdt.reset"] = () => {
+            C.m.clear();
+            C.ord.length = 0;
+            C.rm.clear();
+            C.vv = {};
+            return 1;
+          };
           ops["crdt.local"] = async (x, n) => {
             tick();
             const q = (C.vv[C.me] || 0) + 1;
@@ -2273,6 +2280,19 @@
             });
             return links.size;
           }
+          async function resetRoom() {
+            [...links.values(), ...pend.values(), ...dial.values()].forEach(
+              kill,
+            );
+            [adj, known, retry, fails, nudge, pruned, nms].forEach((m) =>
+              m.clear(),
+            );
+            ever = false;
+            evs.length = 0;
+            await W.call("crdt.reset");
+            if (on.reset) on.reset();
+            on.change();
+          }
           let bk = null;
           async function bpub(sub, o) {
             if (!bk || !Broker.ready) return;
@@ -2318,7 +2338,9 @@
               false,
               ["encrypt", "decrypt"],
             );
-            room = h.slice(16, 24);
+            const nr = h.slice(16, 24);
+            if (room && room !== nr) await resetRoom();
+            room = nr;
             pass = code;
             Broker.open(
               "mc1/" + h.slice(0, 16),
@@ -3414,6 +3436,14 @@
             }
           };
           M.toast = toast;
+          M.reset = () => {
+            off = 0;
+            names.clear();
+            tyT.forEach(clearTimeout);
+            tyT.clear();
+            tyShow();
+            dirty();
+          };
           async function gpoll() {
             const id = $("gist").value.trim();
             if (!id) return;
