@@ -388,7 +388,7 @@
         display: flex;
         flex-direction: column;
         gap: 6px;
-        z-index: 9;
+        z-index: 40;
         width: min(380px, calc(100vw - 24px));
         pointer-events: none;
       }
@@ -425,6 +425,38 @@
       .box:focus {
         outline: none;
       }
+      #stat.ov {
+        position: fixed;
+        inset: var(--hh, 64px) 0 0 0;
+        z-index: 20;
+        background: rgba(250, 246, 238, 0.62);
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+      }
+      #stat .row {
+        justify-content: center;
+      }
+      header > * {
+        flex: none;
+      }
+      header > .pill {
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      @media (max-width: 480px) {
+        header {
+          gap: 6px;
+          padding: 12px 12px 8px;
+        }
+        header button {
+          padding: 7px 11px;
+        }
+        .logo {
+          font-size: 16px;
+        }
+      }
       @keyframes sp {
         to {
           transform: rotate(360deg);
@@ -438,13 +470,11 @@
         border-radius: 50%;
         animation: sp 0.9s linear infinite;
       }
-      .pill.busy {
-        display: inline-flex;
-        align-items: center;
-        gap: 7px;
-      }
       .pill.busy::before {
         content: "";
+        display: inline-block;
+        vertical-align: -1px;
+        margin-right: 7px;
         width: 10px;
         height: 10px;
         border: 2px solid var(--bd);
@@ -513,7 +543,7 @@
     </style>
   </head>
   <body>
-    <header>
+    <header id="hdr">
       <b class="logo">MeshChat</b
       ><span id="st" class="pill" role="status">Not connected</span
       ><span style="flex: 1"></span
@@ -659,6 +689,10 @@
           <div class="row" id="sta" hidden>
             <button id="stk">Keep waiting</button
             ><button id="stl" class="pri">Leave room</button>
+          </div>
+          <div class="row">
+            <button id="stc" hidden>Cancel</button
+            ><button id="stn" hidden class="pri">New short code</button>
           </div>
         </div>
         <div id="empty">
@@ -1648,7 +1682,7 @@
             x.fails++;
             x.rc = setTimeout(
               () => connect(x),
-              Math.min(15000, 1500 * 2 ** Math.min(x.fails, 3)),
+              Math.min(60000, 1500 * 2 ** Math.min(x.fails, 6)),
             );
           }
           function connect(x) {
@@ -3338,7 +3372,7 @@
             const t = $("toasts"),
               d = el("div", "toast " + k, m);
             t.append(d);
-            while (t.children.length > 4) t.firstChild.remove();
+            while (t.children.length > 4) t.firstElementChild.remove();
             setTimeout(() => d.remove(), 5500);
           }
           const dirty = () => {
@@ -3808,7 +3842,13 @@
               }
             } else {
               t = "Waiting for someone to join";
-              sub = "Share the invite link or short code from “Invite”";
+              const sv = $("scv").textContent;
+              sub =
+                sv.length === 4
+                  ? "Short code " +
+                    sv +
+                    " · or share the invite link from “Invite”"
+                  : "Share the invite link or make a short code from “Invite”";
             }
             s.textContent = t;
             s.className = "pill" + (n ? " ok" : sp ? " busy" : "");
@@ -3819,8 +3859,26 @@
               $("stt").textContent = t;
               $("sts").textContent = sub;
               $("sta").hidden = !act;
-              sc.firstChild.style.display = sp ? "block" : "none";
-            }
+              const sn = sc.querySelector(".spin");
+              if (sn) sn.style.display = sp ? "block" : "none";
+              const ov = sp || act;
+              sc.classList.toggle("ov", ov);
+              $("stc").hidden = !(sp && (phase || rrole === "join"));
+              $("stn").hidden = !(
+                rrole === "host" &&
+                !sp &&
+                !phase &&
+                $("scv").textContent.length !== 4
+              );
+              $("empty").hidden = true;
+              if (ov) {
+                const hb = Math.max(
+                  $("hdr").getBoundingClientRect().bottom,
+                  $("bar").hidden ? 0 : $("bar").getBoundingClientRect().bottom,
+                );
+                document.documentElement.style.setProperty("--hh", hb + "px");
+              }
+            } else sc.classList.remove("ov");
             if ($("pn").classList.contains("on")) {
               $("ms").textContent =
                 "Network: " +
@@ -4209,7 +4267,8 @@
               sessionStorage.setItem("mc_code", code);
             } catch (e) {}
             $("empty").hidden = true;
-            if (!q) tog("pc", true);
+            if (!q && rrole === "host") tog("pc", true);
+            else if (rrole === "join") tog("pc", false);
             $("code").textContent = code.match(/.{4}/g).join("-");
             $("code").hidden = false;
             $("cr").hidden = false;
@@ -4263,6 +4322,8 @@
                   $("scv").textContent = "—";
                   $("sct").textContent = m;
                   $("ap").hidden = true;
+                  toast(m, "warn");
+                  diag();
                 },
               });
               $("scv").textContent = c;
@@ -4293,6 +4354,16 @@
             diag();
           }
           $("bLeave").onclick = leaveRoom;
+          $("stc").onclick = () => {
+            if (phase) {
+              if (cancelJoin) cancelJoin();
+              phase = "";
+              diag();
+            } else leaveRoom();
+          };
+          $("stn").onclick = () => {
+            shortCode();
+          };
           $("nmb").onclick = () => {
             off = 0;
             unread = 0;
@@ -4378,6 +4449,7 @@
             Pair.deny();
           };
           function joinShort(c) {
+            tog("pc", false);
             if (cancelJoin) cancelJoin();
             phase = "Contacting the host…";
             phaseSub = "Looking for the code you entered";

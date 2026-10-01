@@ -80,6 +80,10 @@ After "Create private room" the host also gets a **4-character code** (CSPRNG, 3
 - **Accessibility:** ARIA labels/regions, `aria-expanded` on Invite/Network, Escape closes panels and returns focus, panel focus on open (never steals the composer), keyboard-focusable own messages, labelled inputs. `prefers-reduced-motion` stops decorative animation but keeps the connection spinner and progress bar.
 - **Installable:** a runtime-generated web-app manifest and icons make the page installable ("Install app" button / browser menu / iOS Add to Home Screen). Without a service worker file (this project is two files only) there is no offline caching; the app needs the network to connect anyway.
 
+## Layout and joining overlay
+
+While a spinner state is active (contacting the host, connecting, reconnecting) a frosted-glass overlay blurs everything _below_ the header; the header and progress bar stay sharp. The overlay carries a Cancel button (or Keep waiting / Leave room, New short code when relevant). The Invite panel auto-closes when you join so nothing overlaps. The header shrinks gracefully on narrow screens (status text is ellipsized, buttons never leave the viewport). The code never depends on whitespace in the HTML, so auto-formatters such as Prettier are safe.
+
 ## Connection feedback
 
 The header pill and a progress bar show every stage with a spinner: _Connecting to the connection service → Looking for the host → Connecting to peer (secure direct link, up to ~20 s) → Reconnecting → ● n connected_. A joiner who finds nobody after 45 s sees "No one here yet — the host may be offline or the code may be wrong" with **Keep waiting** / **Leave room**; a wrong 4-character code fails after 25 s. **Leave room** (Invite panel) resets everything. Connection-service outages are reported after 15 s while retrying continues.
