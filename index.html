@@ -457,6 +457,30 @@
           font-size: 16px;
         }
       }
+      #stat {
+        pointer-events: none;
+      }
+      #stat button {
+        pointer-events: auto;
+      }
+      #stat.ov {
+        pointer-events: auto;
+      }
+      #ap,
+      #rt {
+        position: relative;
+        z-index: 5;
+      }
+      .pnl .box {
+        max-height: 76vh;
+        overflow-y: auto;
+      }
+      #g {
+        height: min(300px, 32vh);
+      }
+      #jc:not(:placeholder-shown) {
+        text-transform: uppercase;
+      }
       @keyframes sp {
         to {
           transform: rotate(360deg);
@@ -3203,6 +3227,7 @@
             }
           }
           function join(code, ui) {
+            code = String(code).toUpperCase();
             fails = fails.filter((t) => Date.now() - t < 600000);
             if (fails.length >= 5) {
               ui.end("throttle");
@@ -4247,6 +4272,7 @@
                   : "Rendezvous server unreachable — retrying (or use manual pairing below)";
           };
           async function start(code, q, r) {
+            code = String(code).toUpperCase();
             rrole = r || "join";
             joinAt = Date.now();
             phase = "";
@@ -4487,8 +4513,9 @@
           }
           $("bJoin").onclick = () => {
             const v = $("jc").value,
-              m = v.match(/#c=([A-Za-z0-9-]+)/),
+              m = v.match(/#c=([A-Za-z0-9-]+)/i),
               c = (m ? m[1] : v).replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+            $("jc").value = c.length === 16 ? c.match(/.{4}/g).join("-") : c;
             if (c.length === 16) {
               start(c);
               return;
@@ -4513,11 +4540,11 @@
           if (!window.RTCPeerConnection || !(crypto && crypto.subtle))
             toast("WebRTC/WebCrypto missing (needs HTTPS or localhost)", "err");
           W.call("init", [Mesh.me]).catch(() => {});
-          const hc = location.hash.match(/^#c=([A-Za-z0-9]{16})$/);
+          const hc = location.hash.match(/^#c=([A-Za-z0-9]{16})$/i);
           if (hc) {
             history.replaceState(null, "", location.pathname + location.search);
             document.body.dataset.tab = "con";
-            start(hc[1], 1);
+            start(hc[1].toUpperCase(), 1);
           } else {
             let sc = "";
             try {

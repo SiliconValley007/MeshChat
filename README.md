@@ -84,6 +84,14 @@ After "Create private room" the host also gets a **4-character code** (CSPRNG, 3
 
 While a spinner state is active (contacting the host, connecting, reconnecting) a frosted-glass overlay blurs everything _below_ the header; the header and progress bar stay sharp. The overlay carries a Cancel button (or Keep waiting / Leave room, New short code when relevant). The Invite panel auto-closes when you join so nothing overlaps. The header shrinks gracefully on narrow screens (status text is ellipsized, buttons never leave the viewport). The code never depends on whitespace in the HTML, so auto-formatters such as Prettier are safe.
 
+## Codes are case-insensitive
+
+Whatever is typed or pasted (lower/upper case, spaces, dashes, a full invite link, `#c=` in any case) is normalised to upper case before matching, and the field is rewritten to the canonical form on Join.
+
+## Click-target safety
+
+Inline status cards never intercept clicks (only the blurred joining overlay does, and it carries its own Cancel button); approval and retract bars sit above them. Panels scroll internally (max 76 % of screen height) so the chat always keeps room.
+
 ## Connection feedback
 
 The header pill and a progress bar show every stage with a spinner: _Connecting to the connection service → Looking for the host → Connecting to peer (secure direct link, up to ~20 s) → Reconnecting → ● n connected_. A joiner who finds nobody after 45 s sees "No one here yet — the host may be offline or the code may be wrong" with **Keep waiting** / **Leave room**; a wrong 4-character code fails after 25 s. **Leave room** (Invite panel) resets everything. Connection-service outages are reported after 15 s while retrying continues.
