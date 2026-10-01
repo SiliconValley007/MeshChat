@@ -71,6 +71,19 @@ After "Create private room" the host also gets a **4-character code** (CSPRNG, 3
 - On Allow, the real 80-bit room secret is sent encrypted with an ephemeral ECDH key; the room then works exactly as before. The long invite link/code still works and is the strongest option.
   Residual risk: someone who guesses the code within 5 minutes can _ask_ to join, but still needs your Allow. The broker operator can see the (hashed) topic. Both ends must reach the same public broker.
 
+## Reliability and UX additions
+
+- **All brokers at once:** the rendezvous layer connects to HiveMQ, EMQX and Mosquitto simultaneously, publishes to every open one, de-duplicates incoming copies, and reconnects each independently (10 s connect timeout, exponential back-off). Two users meet as long as they share _any_ reachable broker.
+- **Retract a message:** long-press (touch), double-click or right-click (desktop), or focus it and press Delete → confirmation bar. A short guard stops the finger-lift from tapping a button.
+- **New-message cues:** "N new messages ↓" button when scrolled up; tab-title badge `(n) MeshChat` and an optional soft beep (toggle in Invite) when the tab is in the background; delivery ticks ✓ (sent) / ✓✓ (received by at least one peer, via gossiped acks).
+- **Duplicate names:** if two peers use the same name, bubbles show `Name #xx` (first two ID characters); the name "you" is always disambiguated.
+- **Accessibility:** ARIA labels/regions, `aria-expanded` on Invite/Network, Escape closes panels and returns focus, panel focus on open (never steals the composer), keyboard-focusable own messages, labelled inputs. `prefers-reduced-motion` stops decorative animation but keeps the connection spinner and progress bar.
+- **Installable:** a runtime-generated web-app manifest and icons make the page installable ("Install app" button / browser menu / iOS Add to Home Screen). Without a service worker file (this project is two files only) there is no offline caching; the app needs the network to connect anyway.
+
+## Connection feedback
+
+The header pill and a progress bar show every stage with a spinner: _Connecting to the connection service → Looking for the host → Connecting to peer (secure direct link, up to ~20 s) → Reconnecting → ● n connected_. A joiner who finds nobody after 45 s sees "No one here yet — the host may be offline or the code may be wrong" with **Keep waiting** / **Leave room**; a wrong 4-character code fails after 25 s. **Leave room** (Invite panel) resets everything. Connection-service outages are reported after 15 s while retrying continues.
+
 ## Identity, history and cleanup
 
 - Peer ID is kept per tab (`sessionStorage`), together with the room code, so a reload rejoins the same room as the same peer and old messages still show as "you". A new tab is a new peer.

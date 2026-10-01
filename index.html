@@ -8,6 +8,9 @@
     />
     <title>MeshChat</title>
     <meta name="theme-color" content="#faf6ee" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="MeshChat" />
     <meta
       name="description"
       content="Serverless end-to-end encrypted peer-to-peer chat. No accounts, no servers."
@@ -407,6 +410,89 @@
       .toast.ok {
         background: var(--ok);
       }
+      #nmb {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: 84px;
+        z-index: 3;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+        border-radius: 99px;
+      }
+      .msg.me {
+        -webkit-touch-callout: none;
+      }
+      .box:focus {
+        outline: none;
+      }
+      @keyframes sp {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .spin {
+        width: 24px;
+        height: 24px;
+        border: 3px solid var(--bd);
+        border-top-color: var(--ac);
+        border-radius: 50%;
+        animation: sp 0.9s linear infinite;
+      }
+      .pill.busy {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .pill.busy::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border: 2px solid var(--bd);
+        border-top-color: var(--ac);
+        border-radius: 50%;
+        animation: sp 0.9s linear infinite;
+      }
+      #bar {
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--ac), transparent)
+          no-repeat;
+        background-size: 40% 100%;
+        animation: bar 1.3s ease-in-out infinite;
+      }
+      @keyframes bar {
+        from {
+          background-position: -60% 0;
+        }
+        to {
+          background-position: 160% 0;
+        }
+      }
+      #stat {
+        position: absolute;
+        inset: 0 0 70px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        text-align: center;
+        padding: 24px;
+      }
+      #stat h2 {
+        font-weight: 600;
+        font-size: 17px;
+      }
+      #stat p {
+        color: var(--d);
+        max-width: 340px;
+        font-size: 14px;
+      }
+      #stat .row {
+        justify-content: center;
+      }
+      #stat button {
+        flex: none;
+      }
       @keyframes in {
         from {
           opacity: 0;
@@ -419,7 +505,7 @@
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        * {
+        *:not(.spin):not(#bar) {
           animation: none !important;
           transition: none !important;
         }
@@ -428,12 +514,23 @@
   </head>
   <body>
     <header>
-      <b class="logo">MeshChat</b><span id="st" class="pill">Not connected</span
-      ><span style="flex: 1"></span><button id="bNet">Network</button
-      ><button id="bInv" class="pri">Invite</button>
+      <b class="logo">MeshChat</b
+      ><span id="st" class="pill" role="status">Not connected</span
+      ><span style="flex: 1"></span
+      ><button id="bNet" aria-expanded="false" aria-controls="pn">
+        Network</button
+      ><button id="bInv" class="pri" aria-expanded="false" aria-controls="pc">
+        Invite
+      </button>
     </header>
+    <div id="bar" hidden></div>
     <main>
-      <div class="pnl" id="pc">
+      <div
+        class="pnl"
+        id="pc"
+        role="region"
+        aria-label="Invite and room settings"
+      >
         <div>
           <div class="box">
             <input
@@ -444,6 +541,10 @@
             /><label class="chk"
               ><input type="checkbox" id="nh" /> Fresh room: people who join
               later won't see earlier messages</label
+            ><label class="chk"
+              ><input type="checkbox" id="snd" checked /> Play a sound for new
+              messages while this tab is in the background</label
+            ><button id="bInst" hidden>Install app</button
             ><button id="bNew" class="pri" style="padding: 11px">
               Create private room
             </button>
@@ -475,6 +576,7 @@
               ><button id="bCC">Copy code</button>
             </div>
             <div id="qs"></div>
+            <button id="bLeave" hidden>Leave room</button>
             <details>
               <summary>
                 Advanced: manual pairing (QR / paste / link / Gist)
@@ -537,7 +639,7 @@
           </div>
         </div>
       </div>
-      <div class="pnl" id="pn">
+      <div class="pnl" id="pn" role="region" aria-label="Live network map">
         <div>
           <div class="box">
             <div id="ms" style="font-size: 12px; color: var(--d)"></div>
@@ -549,6 +651,16 @@
       </div>
       <section id="chat">
         <div id="log" role="log" aria-live="polite"></div>
+        <button id="nmb" class="pri" hidden>New messages ↓</button>
+        <div id="stat" hidden aria-live="polite">
+          <div class="spin"></div>
+          <h2 id="stt"></h2>
+          <p id="sts"></p>
+          <div class="row" id="sta" hidden>
+            <button id="stk">Keep waiting</button
+            ><button id="stl" class="pri">Leave room</button>
+          </div>
+        </div>
         <div id="empty">
           <h2>Private chat, no servers</h2>
           <p>
@@ -558,6 +670,20 @@
           <div class="row">
             <button id="eNew" class="pri">Create room</button
             ><button id="eJoin">Join room</button>
+          </div>
+        </div>
+        <div
+          id="rt"
+          class="box"
+          hidden
+          role="alertdialog"
+          aria-label="Retract message"
+          style="margin: 8px 12px 0"
+        >
+          <div>Retract this message for everyone?</div>
+          <div class="row">
+            <button id="rty" class="pri">Retract</button
+            ><button id="rtn">Cancel</button>
           </div>
         </div>
         <div id="ap" class="box" hidden style="margin: 8px 12px 0">
@@ -925,7 +1051,11 @@
           ops["crdt.view"] = (off, cnt) => {
             const n = C.ord.length,
               end = Math.max(0, n - off);
-            return { total: n, ms: C.ord.slice(Math.max(0, end - cnt), end) };
+            return {
+              total: n,
+              last: C.ord[n - 1] || null,
+              ms: C.ord.slice(Math.max(0, end - cnt), end),
+            };
           };
           /* ---- signal codec ---- */
           const pipe = async (u, T) => {
@@ -1463,18 +1593,14 @@
             ],
             E = new TextEncoder(),
             D = new TextDecoder();
-          let ws = null,
-            ui = 0,
-            base = "",
+          let base = "",
             mid = "",
             cb = null,
-            st = null,
-            pt = 0,
-            rc = 0,
+            st = () => {},
             want = false,
-            ok = false,
-            lastRx = 0,
-            buf = new Uint8Array(0);
+            S = [],
+            seen = new Map(),
+            lastSt = "";
           const s2 = (s) => {
             const b = E.encode(s);
             return [b.length >> 8, b.length & 255, ...b];
@@ -1490,20 +1616,61 @@
             return o;
           };
           const pk = (h, b) => Uint8Array.from([h, ...rl(b.length), ...b]);
-          function connect() {
-            clearTimeout(rc);
-            st("connecting");
-            buf = new Uint8Array(0);
+          const emit = (s) => {
+            if (s !== "up" && s === lastSt) return;
+            lastSt = s;
+            st(s);
+          };
+          function stat() {
+            if (!S.some((x) => x.ok))
+              emit(
+                S.some((x) => x.ws && x.ws.readyState === 0)
+                  ? "connecting"
+                  : "down",
+              );
+          }
+          function drop(x) {
+            clearInterval(x.pt);
+            clearTimeout(x.rc);
+            clearTimeout(x.ct);
+            const w = x.ws;
+            x.ws = null;
+            x.ok = false;
+            if (w) {
+              w.onclose = w.onerror = w.onmessage = null;
+              try {
+                w.close();
+              } catch (e) {}
+            }
+          }
+          function retry(x) {
+            if (!want) return;
+            x.fails++;
+            x.rc = setTimeout(
+              () => connect(x),
+              Math.min(15000, 1500 * 2 ** Math.min(x.fails, 3)),
+            );
+          }
+          function connect(x) {
+            clearTimeout(x.rc);
+            x.buf = new Uint8Array(0);
+            if (!S.some((y) => y.ok)) emit("connecting");
             let w;
             try {
-              w = new WebSocket(URLS[ui % URLS.length], "mqtt");
+              w = new WebSocket(x.url, "mqtt");
             } catch (e) {
-              ui++;
-              rc = setTimeout(connect, 1500);
+              retry(x);
               return;
             }
-            ws = w;
+            x.ws = w;
             w.binaryType = "arraybuffer";
+            x.ct = setTimeout(() => {
+              if (w === x.ws && !x.ok) {
+                drop(x);
+                stat();
+                retry(x);
+              }
+            }, 10000);
             w.onopen = () =>
               w.send(
                 pk(0x10, [
@@ -1520,42 +1687,42 @@
                   ...s2("mc" + mid + Math.random().toString(16).slice(2, 6)),
                 ]),
               );
-            w.onmessage = (e) => parse(new Uint8Array(e.data));
+            w.onmessage = (e) => parse(x, new Uint8Array(e.data));
             w.onclose = w.onerror = () => {
-              if (w !== ws) return;
-              ws = null;
-              ok = false;
-              clearInterval(pt);
-              if (want) {
-                st("down");
-                ui++;
-                rc = setTimeout(connect, 1500);
-              }
+              if (w !== x.ws) return;
+              drop(x);
+              stat();
+              retry(x);
             };
           }
-          function parse(u) {
-            lastRx = Date.now();
-            const c = new Uint8Array(buf.length + u.length);
-            c.set(buf);
-            c.set(u, buf.length);
-            buf = c;
-            while (buf.length > 1) {
+          function kickOne(x) {
+            drop(x);
+            x.fails = 0;
+            connect(x);
+          }
+          function parse(x, u) {
+            x.lastRx = Date.now();
+            const c = new Uint8Array(x.buf.length + u.length);
+            c.set(x.buf);
+            c.set(u, x.buf.length);
+            x.buf = c;
+            while (x.buf.length > 1) {
               let i = 1,
                 m = 1,
                 n = 0,
                 b;
               do {
-                if (i >= buf.length) return;
-                b = buf[i++];
+                if (i >= x.buf.length) return;
+                b = x.buf[i++];
                 n += (b & 127) * m;
                 m *= 128;
               } while (b & 128);
-              if (buf.length < i + n) return;
-              const t = buf[0] >> 4,
-                body = buf.slice(i, i + n);
-              buf = buf.slice(i + n);
+              if (x.buf.length < i + n) return;
+              const t = x.buf[0] >> 4,
+                body = x.buf.slice(i, i + n);
+              x.buf = x.buf.slice(i + n);
               if (t === 2) {
-                ws.send(
+                x.ws.send(
                   pk(0x82, [
                     0,
                     1,
@@ -1565,46 +1732,51 @@
                     0,
                   ]),
                 );
-                ok = true;
-                lastRx = Date.now();
-                clearInterval(pt);
-                pt = setInterval(() => {
-                  if (!ws || ws.readyState !== 1) return;
-                  if (Date.now() - lastRx > 45000) {
-                    kick();
+                x.ok = true;
+                x.fails = 0;
+                clearTimeout(x.ct);
+                clearInterval(x.pt);
+                x.pt = setInterval(() => {
+                  if (!x.ws || x.ws.readyState !== 1) return;
+                  if (Date.now() - x.lastRx > 45000) {
+                    kickOne(x);
                     return;
                   }
-                  ws.send(Uint8Array.of(0xc0, 0));
+                  x.ws.send(Uint8Array.of(0xc0, 0));
                 }, 15000);
-                st("up");
+                emit("up");
               } else if (t === 3) {
                 const tl = (body[0] << 8) | body[1];
+                let top, pay;
                 try {
-                  cb(
-                    D.decode(body.subarray(2, 2 + tl)),
-                    D.decode(body.subarray(2 + tl)),
-                  );
+                  top = D.decode(body.subarray(2, 2 + tl));
+                  pay = D.decode(body.subarray(2 + tl));
+                } catch (e) {
+                  continue;
+                }
+                const key = top + "|" + pay,
+                  n2 = Date.now(),
+                  p = seen.get(key);
+                if (p && n2 - p < 3000) continue;
+                seen.set(key, n2);
+                if (seen.size > 400) seen.delete(seen.keys().next().value);
+                try {
+                  cb(top, pay);
                 } catch (e) {}
               }
             }
           }
           const pub = (sub, o) => {
-            if (ok && ws && ws.readyState === 1)
-              ws.send(pk(0x30, [...s2(base + "/" + sub), ...E.encode(o)]));
+            S.forEach((x) => {
+              if (x.ok && x.ws && x.ws.readyState === 1)
+                x.ws.send(pk(0x30, [...s2(base + "/" + sub), ...E.encode(o)]));
+            });
           };
           function close() {
             want = false;
-            ok = false;
-            clearTimeout(rc);
-            clearInterval(pt);
-            const w = ws;
-            ws = null;
-            if (w) {
-              w.onclose = w.onerror = w.onmessage = null;
-              try {
-                w.close();
-              } catch (e) {}
-            }
+            S.forEach(drop);
+            S = [];
+            lastSt = "";
           }
           function open(b, me, c, s) {
             close();
@@ -1613,33 +1785,30 @@
             cb = c;
             st = s;
             want = true;
-            ui = 0;
-            connect();
+            S = URLS.map((url) => ({
+              url,
+              ws: null,
+              ok: false,
+              pt: 0,
+              rc: 0,
+              ct: 0,
+              buf: new Uint8Array(0),
+              lastRx: 0,
+              fails: 0,
+            }));
+            S.forEach(connect);
           }
           function kick() {
-            if (!want) return;
-            const w = ws;
-            ws = null;
-            ok = false;
-            clearInterval(pt);
-            clearTimeout(rc);
-            if (w) {
-              w.onclose = w.onerror = w.onmessage = null;
-              try {
-                w.close();
-              } catch (e) {}
-            }
-            ui = 0;
-            connect();
+            if (want) S.forEach(kickOne);
           }
           return {
             open,
             close,
             kick,
             pub,
-            idle: () => Date.now() - lastRx,
+            idle: () => Date.now() - Math.max(0, ...S.map((x) => x.lastRx)),
             get ready() {
-              return ok;
+              return S.some((x) => x.ok);
             },
           };
         };
@@ -1687,7 +1856,8 @@
             fs = [],
             sgs = new Map();
           const evs = [];
-          let bst = "connecting";
+          let bst = "connecting",
+            bdownAt = 0;
           const evt = (m, k) => {
             evs.unshift({ t: now(), m, k });
             if (evs.length > 40) evs.pop();
@@ -2260,6 +2430,10 @@
               hub,
               N,
               bst,
+              busy:
+                dial.size + [...pend.values()].filter((l) => !l.manual).length,
+              retrying: retry.size,
+              bdown: bdownAt ? now() - bdownAt : 0,
               events: evs.slice(0, 10),
               density: N > 1 ? g.edges.length / ((N * (N - 1)) / 2) : 0,
               warns,
@@ -2406,6 +2580,8 @@
               },
               (st) => {
                 bst = st;
+                if (st === "up") bdownAt = 0;
+                else if (!bdownAt) bdownAt = now();
                 evt("Rendezvous server: " + st, st === "up" ? "ok" : "warn");
                 on.qstatus(st);
                 if (st === "up") bpub("all", { k: "hi", f: me });
@@ -2477,6 +2653,12 @@
             quick,
             wake,
             evt,
+            leave: async () => {
+              Broker.close();
+              await resetRoom();
+              room = "";
+              bk = null;
+            },
             setName: (v) => {
               nick = cleanName(v);
               clearTimeout(nmT);
@@ -2629,6 +2811,23 @@
                   if (r.added.length || r.rm.length) {
                     UI.dirty();
                     push(r.added, r.rm, (p.h | 0) + 1, l);
+                    const rec = r.added
+                      .filter(
+                        (m) => m.s !== Mesh.me && Date.now() - m.l < 120000,
+                      )
+                      .map((m) => m.id);
+                    if (rec.length) {
+                      const i = rid();
+                      sn(i);
+                      for (const x of open())
+                        Rtc.send(x, {
+                          k: "ak",
+                          i,
+                          m: rec.slice(0, 30),
+                          s: Mesh.me,
+                          h: 0,
+                        });
+                    }
                   }
                   break;
                 }
@@ -2668,6 +2867,28 @@
                 case "rq":
                   await sendIds(l, okIds(p.ids).slice(0, 100));
                   break;
+                case "ak": {
+                  if (!sn(p.i) || !Array.isArray(p.m)) return;
+                  UI.acked(
+                    p.m
+                      .filter((x) => typeof x === "string" && x.length === 64)
+                      .slice(0, 30),
+                    String(p.s).slice(0, 8),
+                  );
+                  if ((p.h | 0) < 3)
+                    for (const x of sampleW(
+                      open().filter((y) => y !== l),
+                      2,
+                    ))
+                      Rtc.send(x, {
+                        k: "ak",
+                        i: p.i,
+                        m: p.m,
+                        s: p.s,
+                        h: (p.h | 0) + 1,
+                      });
+                  break;
+                }
                 case "ty":
                   if (!sn(p.i)) return;
                   UI.typing(String(p.s).slice(0, 8), cleanName(p.n));
@@ -2979,7 +3200,7 @@
                       n: Mesh.name,
                     }),
                   );
-              tm = setTimeout(() => fin("timeout"), 120000);
+              tm = setTimeout(() => fin("timeout"), 25000);
               jb.open(
                 await topic(code),
                 Mesh.me,
@@ -2994,6 +3215,8 @@
                   if (p.t === "ack" && !kh && typeof p.pub === "string") {
                     try {
                       kh = { bits: await dh(g.kp.privateKey, p.pub) };
+                      clearTimeout(tm);
+                      tm = setTimeout(() => fin("timeout"), 120000);
                       ui.sas(await sas(kh.bits, p.pub, g.pub));
                     } catch (e) {
                       fin("bad");
@@ -3055,13 +3278,56 @@
             W_ = 0,
             H_ = 0;
           const names = new Map(),
-            label = (id) => Mesh.nameOf(id) || names.get(id) || id.slice(0, 4),
-            remember = (id, n) => {
-              if (!n) return;
-              names.delete(id);
-              names.set(id, n);
-              if (names.size > 200) names.delete(names.keys().next().value);
-            };
+            nameIds = new Map(),
+            idName = new Map();
+          const reg = (id, n) => {
+            const k = n.toLowerCase(),
+              o = idName.get(id);
+            if (o === k) return;
+            if (o) {
+              const s = nameIds.get(o);
+              if (s) {
+                s.delete(id);
+                if (!s.size) nameIds.delete(o);
+              }
+            }
+            idName.set(id, k);
+            let s = nameIds.get(k);
+            if (!s) nameIds.set(k, (s = new Set()));
+            s.add(id);
+          };
+          const disp = (id, n) => {
+            if (!n) return id.slice(0, 4);
+            const s = nameIds.get(n.toLowerCase());
+            return (s && s.size > 1) || n.toLowerCase() === "you"
+              ? n + " #" + id.slice(0, 2)
+              : n;
+          };
+          const label = (id) => {
+            const n = Mesh.nameOf(id) || names.get(id);
+            if (n) reg(id, n);
+            return disp(id, n);
+          };
+          const remember = (id, n) => {
+            if (!n) return;
+            reg(id, n);
+            names.delete(id);
+            names.set(id, n);
+            if (names.size > 200) names.delete(names.keys().next().value);
+          };
+          let phase = "",
+            phaseSub = "",
+            rrole = "",
+            joinAt = 0,
+            unread = 0,
+            lastNew = null,
+            forceBottom = false,
+            hid = 0,
+            actx = null,
+            snd = true,
+            rtId = "",
+            rtGuard = 0;
+          const acks = new Map();
           const el = (t, c, x) => {
             const e = document.createElement(t);
             if (c) e.className = c;
@@ -3086,28 +3352,81 @@
             const own = m.s === Mesh.me,
               d = el("div", "msg" + (own ? " me" : ""));
             d.dataset.id = m.id;
-            remember(m.s, cleanName(m.n));
-            const a = el(
-              "b",
-              "",
-              own ? "you" : cleanName(m.n) || m.s.slice(0, 4),
-            );
+            const nn = cleanName(m.n);
+            remember(m.s, nn);
+            const a = el("b", "", own ? "you" : disp(m.s, nn));
             a.title = m.s;
             a.style.color = "hsl(" + (hs(m.s) % 360) + " 45% 38%)";
-            d.append(
-              a,
-              el("span", "", m.x),
-              el(
-                "i",
-                "tk",
-                new Date(m.l).toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-              ),
-            );
-            if (own) d.ondblclick = () => Gossip.retract(m.id);
+            const tm = new Date(m.l).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              tk = el("i", "tk", own ? tm + " " + tickOf(m.id) : tm);
+            tk.dataset.t = tm;
+            d.append(a, el("span", "", m.x), tk);
+            if (own) {
+              d.tabIndex = 0;
+              d.setAttribute(
+                "aria-label",
+                "Your message: " + m.x + ". Press Delete to retract.",
+              );
+              d.ondblclick = () => askRetract(m.id);
+              d.oncontextmenu = (e) => {
+                e.preventDefault();
+                askRetract(m.id);
+              };
+              d.onkeydown = (e) => {
+                if (e.key === "Delete" || e.key === "Backspace")
+                  askRetract(m.id);
+              };
+              let pt = 0,
+                sx = 0,
+                sy = 0;
+              const cl = () => {
+                clearTimeout(pt);
+                pt = 0;
+              };
+              d.onpointerdown = (e) => {
+                if (e.pointerType === "mouse") return;
+                sx = e.clientX;
+                sy = e.clientY;
+                pt = setTimeout(() => {
+                  pt = 0;
+                  askRetract(m.id);
+                }, 550);
+              };
+              d.onpointerup = d.onpointercancel = cl;
+              d.onpointermove = (e) => {
+                if (pt && Math.hypot(e.clientX - sx, e.clientY - sy) > 10) cl();
+              };
+            }
             return d;
+          }
+          const tickOf = (id) => {
+            const a = acks.get(id);
+            return a && a.size ? "✓✓" : "✓";
+          };
+          function acked(ids, s) {
+            for (const id of ids) {
+              let a = acks.get(id);
+              if (!a) {
+                a = new Set();
+                acks.set(id, a);
+                if (acks.size > 600) acks.delete(acks.keys().next().value);
+              }
+              a.add(s);
+              const e = log.querySelector('[data-id="' + id + '"] .tk');
+              if (e) {
+                e.textContent = e.dataset.t + " " + tickOf(id);
+                e.title = "Delivered to " + a.size;
+              }
+            }
+          }
+          function askRetract(id) {
+            rtGuard = Date.now() + 700;
+            rtId = id;
+            $("rt").hidden = false;
+            $("rty").focus();
           }
           async function refresh() {
             if (busy) {
@@ -3118,12 +3437,26 @@
             try {
               const v = await W.call("crdt.view", [off, 120]);
               total = v.total;
-              $("empty").hidden = total > 0 || !!curCode;
+              $("empty").hidden = total > 0 || !!curCode || !!phase;
               const fol =
                 off === 0 &&
                 log.scrollHeight - log.scrollTop - log.clientHeight < 90;
               let aid = null,
                 ad = 0;
+              const nl = v.last;
+              if (nl && nl.id !== lastNew) {
+                const fresh = lastNew !== null && Date.now() - nl.l < 60000;
+                lastNew = nl.id;
+                if (fresh && nl.s !== Mesh.me) {
+                  if (document.hidden || !document.hasFocus()) note();
+                  else if (!fol) {
+                    unread++;
+                    $("nmb").textContent =
+                      unread + " new message" + (unread > 1 ? "s" : "") + " ↓";
+                    $("nmb").hidden = false;
+                  }
+                }
+              }
               if (!fol)
                 for (const c of log.children)
                   if (c.offsetTop + c.offsetHeight > log.scrollTop) {
@@ -3134,8 +3467,10 @@
               const f = document.createDocumentFragment();
               for (const m of v.ms) f.append(row(m));
               log.replaceChildren(f);
-              if (fol) log.scrollTop = log.scrollHeight;
-              else if (aid) {
+              if (fol || forceBottom) {
+                forceBottom = false;
+                log.scrollTop = log.scrollHeight;
+              } else if (aid) {
                 const e = log.querySelector('[data-id="' + aid + '"]');
                 if (e) log.scrollTop = e.offsetTop - ad;
               }
@@ -3145,6 +3480,13 @@
             busy = false;
           }
           log.onscroll = () => {
+            if (
+              off === 0 &&
+              log.scrollHeight - log.scrollTop - log.clientHeight < 60
+            ) {
+              unread = 0;
+              $("nmb").hidden = true;
+            }
             if (busy) return;
             if (log.scrollTop < 30 && total > off + 120) {
               off += 40;
@@ -3179,6 +3521,8 @@
             if (!x) return;
             i.value = "";
             i.style.height = "auto";
+            off = 0;
+            forceBottom = true;
             Gossip.say(x).catch((er) =>
               toast("Send failed: " + er.message, "err"),
             );
@@ -3420,20 +3764,63 @@
               }, 120);
           };
           function diag() {
+            if (Mesh.name) reg(Mesh.me, Mesh.name);
             const d = Mesh.diag(),
               n = d.peers.filter((p) => p.st === "open").length,
               s = $("st");
-            s.textContent = n
-              ? "● " +
+            let t,
+              sub = "",
+              sp = false,
+              act = false;
+            if (n)
+              t =
+                "● " +
                 n +
                 " connected" +
-                (d.mode === "full" ? "" : " · " + d.mode)
-              : d.ever
-                ? "Reconnecting…"
-                : Mesh.room
-                  ? "Waiting for peers…"
-                  : "Not connected";
-            s.className = "pill" + (n ? " ok" : "");
+                (d.mode === "full" ? "" : " · " + d.mode);
+            else if (phase) {
+              t = phase;
+              sub = phaseSub;
+              sp = true;
+            } else if (!Mesh.room) t = "Not connected";
+            else if (d.bst !== "up") {
+              t = "Connecting…";
+              sp = true;
+              sub =
+                d.bdown > 15000
+                  ? "Having trouble reaching the connection service. Check your internet — still retrying."
+                  : "Reaching the connection service";
+            } else if (d.busy || (d.ever && d.retrying)) {
+              t = d.ever ? "Reconnecting…" : "Connecting to peer…";
+              sp = true;
+              sub =
+                "Setting up a secure direct connection — this can take up to 20 seconds";
+            } else if (d.ever) t = "Waiting for peers to come back";
+            else if (rrole === "join") {
+              if (Date.now() - joinAt > 45000) {
+                t = "No one here yet";
+                sub = "The host may be offline, or the code may be wrong.";
+                act = true;
+              } else {
+                t = "Looking for the host…";
+                sp = true;
+                sub = "Checking the room for the person who invited you";
+              }
+            } else {
+              t = "Waiting for someone to join";
+              sub = "Share the invite link or short code from “Invite”";
+            }
+            s.textContent = t;
+            s.className = "pill" + (n ? " ok" : sp ? " busy" : "");
+            $("bar").hidden = !sp;
+            const sc = $("stat");
+            sc.hidden = !((Mesh.room || phase) && !n && !total);
+            if (!sc.hidden) {
+              $("stt").textContent = t;
+              $("sts").textContent = sub;
+              $("sta").hidden = !act;
+              sc.firstChild.style.display = sp ? "block" : "none";
+            }
             if ($("pn").classList.contains("on")) {
               $("ms").textContent =
                 "Network: " +
@@ -3465,15 +3852,21 @@
             return d;
           }
           const tog = (id, f) => {
-            const e = $(id);
-            e.classList.toggle(
-              "on",
-              f === undefined ? !e.classList.contains("on") : f,
-            );
+            const e = $(id),
+              on = f === undefined ? !e.classList.contains("on") : f;
+            e.classList.toggle("on", on);
+            const bt = { pc: "bInv", pn: "bNet" }[id];
+            if (bt) $(bt).setAttribute("aria-expanded", on);
             if (id === "pn") {
               kick();
               diag();
             }
+            if (on && bt)
+              setTimeout(() => {
+                const b = e.querySelector(".box");
+                if (b && document.activeElement !== $("in"))
+                  b.focus({ preventScroll: true });
+              }, 60);
           };
           $("bInv").onclick = () => tog("pc");
           $("bNet").onclick = () => tog("pn");
@@ -3722,6 +4115,12 @@
           M.reset = () => {
             off = 0;
             names.clear();
+            nameIds.clear();
+            idName.clear();
+            acks.clear();
+            lastNew = null;
+            unread = 0;
+            $("nmb").hidden = true;
             tyT.forEach(clearTimeout);
             tyT.clear();
             tyShow();
@@ -3789,7 +4188,14 @@
                   ? "Contacting rendezvous server…"
                   : "Rendezvous server unreachable — retrying (or use manual pairing below)";
           };
-          async function start(code, q) {
+          async function start(code, q, r) {
+            rrole = r || "join";
+            joinAt = Date.now();
+            phase = "";
+            $("bLeave").hidden = false;
+            try {
+              sessionStorage.setItem("mc_role", rrole);
+            } catch (e) {}
             if (code !== curCode) {
               Pair.close();
               $("scv").textContent = "—";
@@ -3820,7 +4226,7 @@
               (b) => AL[b % 32],
             );
             c[0] = AL[(AL.indexOf(c[0]) & 30) | ($("nh").checked ? 1 : 0)];
-            start(c.join("")).then(shortCode);
+            start(c.join(""), 0, "host").then(shortCode);
           };
           let scT = 0,
             cancelJoin = null;
@@ -3866,6 +4272,103 @@
             }
           }
           $("bSc").onclick = shortCode;
+          async function leaveRoom() {
+            if (cancelJoin) cancelJoin();
+            Pair.close();
+            clearInterval(scT);
+            curCode = "";
+            rrole = "";
+            phase = "";
+            joinAt = 0;
+            try {
+              sessionStorage.removeItem("mc_code");
+              sessionStorage.removeItem("mc_role");
+            } catch (e) {}
+            ["code", "cr", "sc", "bLeave", "ap"].forEach(
+              (k) => ($(k).hidden = true),
+            );
+            $("qs").textContent = "";
+            await Mesh.leave();
+            $("empty").hidden = false;
+            diag();
+          }
+          $("bLeave").onclick = leaveRoom;
+          $("nmb").onclick = () => {
+            off = 0;
+            unread = 0;
+            forceBottom = true;
+            $("nmb").hidden = true;
+            refresh();
+          };
+          $("rty").onclick = () => {
+            if (Date.now() < rtGuard) return;
+            $("rt").hidden = true;
+            Gossip.retract(rtId);
+          };
+          $("rtn").onclick = () => {
+            if (Date.now() < rtGuard) return;
+            $("rt").hidden = true;
+          };
+          const baseTitle = document.title;
+          function note() {
+            hid++;
+            document.title = "(" + hid + ") " + baseTitle;
+            beep();
+          }
+          const clearNote = () => {
+            if (hid) {
+              hid = 0;
+              document.title = baseTitle;
+            }
+          };
+          addEventListener("focus", clearNote);
+          document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) clearNote();
+          });
+          function beep() {
+            try {
+              if (!snd || !actx || actx.state === "closed") return;
+              const o = actx.createOscillator(),
+                g = actx.createGain();
+              o.frequency.value = 880;
+              g.gain.value = 0.05;
+              o.connect(g);
+              g.connect(actx.destination);
+              o.start();
+              o.stop(actx.currentTime + 0.12);
+            } catch (e) {}
+          }
+          ["pointerdown", "keydown"].forEach((ev) =>
+            addEventListener(
+              ev,
+              () => {
+                if (!actx) {
+                  try {
+                    actx = new (
+                      window.AudioContext || window.webkitAudioContext
+                    )();
+                  } catch (e) {}
+                }
+                if (actx && actx.state === "suspended") actx.resume();
+              },
+              { passive: true },
+            ),
+          );
+          try {
+            snd = localStorage.getItem("mc_snd") !== "0";
+          } catch (e) {}
+          $("snd").checked = snd;
+          $("snd").onchange = () => {
+            snd = $("snd").checked;
+            try {
+              localStorage.setItem("mc_snd", snd ? "1" : "0");
+            } catch (e) {}
+          };
+          $("stl").onclick = leaveRoom;
+          $("stk").onclick = () => {
+            joinAt = Date.now();
+            diag();
+          };
           $("apy").onclick = () => {
             $("ap").hidden = true;
             Pair.allow();
@@ -3876,28 +4379,37 @@
           };
           function joinShort(c) {
             if (cancelJoin) cancelJoin();
-            $("qs").textContent = "Contacting host…";
+            phase = "Contacting the host…";
+            phaseSub = "Looking for the code you entered";
+            diag();
             cancelJoin = Pair.join(c, {
               sas: (s) => {
-                $("qs").textContent =
-                  "Ask the host to tap Allow · safety number " +
+                phase = "Waiting for host approval";
+                phaseSub =
+                  "Ask the host to tap Allow. Safety number " +
                   s +
-                  " (must match theirs)";
+                  " must match theirs.";
+                diag();
               },
               joined: (K) => {
+                phase = "";
                 $("qs").textContent = "";
                 start(K);
               },
               end: (r) => {
-                if (r !== "ok")
-                  $("qs").textContent =
-                    {
-                      denied: "The host declined.",
-                      timeout:
-                        "No response — check the code or ask for a new one.",
-                      bad: "Pairing failed.",
-                      throttle: "Too many attempts — wait a few minutes.",
-                    }[r] || "";
+                if (r === "ok") return;
+                phase = "";
+                const m =
+                  {
+                    denied: "The host declined.",
+                    timeout:
+                      "No host found for that code. Check it or ask for a new one.",
+                    bad: "Pairing failed. Try again.",
+                    throttle: "Too many attempts — wait a few minutes.",
+                  }[r] || "";
+                $("qs").textContent = m;
+                if (m) toast(m, "warn");
+                diag();
               },
             });
           }
@@ -3939,7 +4451,13 @@
             try {
               sc = sessionStorage.getItem("mc_code") || "";
             } catch (e) {}
-            if (/^[A-Za-z0-9]{16}$/.test(sc)) start(sc, 1);
+            if (/^[A-Za-z0-9]{16}$/.test(sc)) {
+              let sr = "";
+              try {
+                sr = sessionStorage.getItem("mc_role") || "";
+              } catch (e) {}
+              start(sc, 1, sr);
+            }
           }
           if (/^#[oas]=/.test(location.hash)) {
             $("blob").value = location.href;
@@ -3971,6 +4489,97 @@
             clearInterval(carT);
             W.kill();
           });
+          document.addEventListener("keydown", (e) => {
+            if (e.key !== "Escape") return;
+            if (!$("rt").hidden) {
+              $("rt").hidden = true;
+              return;
+            }
+            for (const id of ["pn", "pc"])
+              if ($(id).classList.contains("on")) {
+                tog(id, false);
+                $({ pc: "bInv", pn: "bNet" }[id]).focus();
+                return;
+              }
+          });
+          ["pc", "pn"].forEach((id) => {
+            $(id).querySelector(".box").tabIndex = -1;
+          });
+          document
+            .querySelectorAll("input:not([type=checkbox]),textarea")
+            .forEach((e) => {
+              if (!e.getAttribute("aria-label"))
+                e.setAttribute("aria-label", e.placeholder || e.id);
+            });
+          if (/^https?:$/.test(location.protocol))
+            try {
+              const mk = (s) => {
+                const c = document.createElement("canvas");
+                c.width = c.height = s;
+                const g = c.getContext("2d"),
+                  k = s / 512;
+                g.fillStyle = "#c2703d";
+                g.fillRect(0, 0, s, s);
+                g.fillStyle = "#fffdf8";
+                g.beginPath();
+                g.arc(256 * k, 238 * k, 138 * k, 0, 6.283);
+                g.fill();
+                g.beginPath();
+                g.moveTo(170 * k, 350 * k);
+                g.lineTo(150 * k, 430 * k);
+                g.lineTo(250 * k, 372 * k);
+                g.fill();
+                return c.toDataURL("image/png");
+              };
+              const i192 = mk(192),
+                i512 = mk(512),
+                u = location.origin + location.pathname,
+                man = {
+                  name: "MeshChat",
+                  short_name: "MeshChat",
+                  description:
+                    "Serverless end-to-end encrypted peer-to-peer chat",
+                  start_url: u,
+                  scope: u.replace(/[^/]*$/, ""),
+                  display: "standalone",
+                  background_color: "#faf6ee",
+                  theme_color: "#faf6ee",
+                  icons: [
+                    { src: i192, sizes: "192x192", type: "image/png" },
+                    { src: i512, sizes: "512x512", type: "image/png" },
+                  ],
+                };
+              const l = document.createElement("link");
+              l.rel = "manifest";
+              l.href = URL.createObjectURL(
+                new Blob([JSON.stringify(man)], {
+                  type: "application/manifest+json",
+                }),
+              );
+              document.head.append(l);
+              const ai = document.createElement("link");
+              ai.rel = "apple-touch-icon";
+              ai.href = i192;
+              document.head.append(ai);
+            } catch (e) {}
+          let dip = null;
+          addEventListener("beforeinstallprompt", (e) => {
+            e.preventDefault();
+            dip = e;
+            $("bInst").hidden = false;
+          });
+          $("bInst").onclick = async () => {
+            if (!dip) return;
+            dip.prompt();
+            try {
+              await dip.userChoice;
+            } catch (e) {}
+            dip = null;
+            $("bInst").hidden = true;
+          };
+          addEventListener("appinstalled", () => {
+            $("bInst").hidden = true;
+          });
           /* WhatsApp-style composer focus: buttons never steal focus from the composer; the box is never focused automatically on load */
           document.addEventListener("mousedown", (e) => {
             if (
@@ -3982,7 +4591,7 @@
           sync();
           diag();
           dirty();
-          return { toast, dirty, typing };
+          return { toast, dirty, typing, acked };
         })();
       })();
     </script>
